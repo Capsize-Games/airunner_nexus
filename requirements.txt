@@ -1,0 +1,2 @@
+bitsandbytes==0.35.4
+transformers==4.25.1
