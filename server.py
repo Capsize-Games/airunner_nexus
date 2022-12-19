@@ -1,27 +1,46 @@
+import base64
 import json
+import os
 import signal
 import socket
 import threading
 import time
 from typing import Optional
-import flask
 import io
-
 import numpy as np
 import torch
 import queue
-from PIL import Image
+from transformers import CLIPFeatureExtractor
 import settings
-from diffusers import StableDiffusionPipeline
+import messagecodes as codes
+from PIL import Image
+from diffusers import (
+    StableDiffusionPipeline,
+    StableDiffusionImg2ImgPipeline,
+    StableDiffusionInpaintPipeline,
+    EulerAncestralDiscreteScheduler,
+    DDPMScheduler,
+    DDIMScheduler,
+    PNDMScheduler,
+    LMSDiscreteScheduler,
+    EulerDiscreteScheduler,
+    DPMSolverMultistepScheduler, StableDiffusionPipelineSafe
+)
 from pytorch_lightning import seed_everything
+from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
 from logger import logger
 from exceptions import FailedToSendError, NoConnectionToClientError
-import messagecodes as codes
+
 LONG_MESSAGE_SIZE=5610434
 RESPONSE_QUEUE = queue.SimpleQueue()
 
+
 class SDRunner:
-    _current_model = "runwayml/stable-diffusion-v1-5"
+    _current_model = ""
+    scheduler_name = "ddpm"
+    do_nsfw_filter = True
+    do_watermark = True
+    initialized = False
 
     @property
     def current_model(self):
@@ -31,236 +50,272 @@ class SDRunner:
     def current_model(self, model):
         if self._current_model != model:
             self._current_model = model
-            self.load_model()
+            if self.initialized:
+                self.load_model()
+
+    @property
+    def model_path(self):
+        model_path = self.current_model
+        if self.current_model in [
+            "stable-diffusion-v1-5",
+            "stable-diffusion-inpainting",
+            "stable-diffusion-2-1-base",
+            "stable-diffusion-2-inpainting",
+        ]:
+            model_path = f"./models/{self.current_model}"
+        return model_path
 
     def load_model(self):
         torch.cuda.empty_cache()
-        self.pipe = StableDiffusionPipeline.from_pretrained(
-            self.current_model,
-            torch_dtype=torch.half,
-            # revision="fp16"
+        # load StableDiffusionSafetyChecker with CLIPConfig
+        self.safety_checker = StableDiffusionSafetyChecker(
+            StableDiffusionSafetyChecker.config_class()
         )
-        self.pipe.skip_nsfw = True
-        self.pipe.enable_xformers_memory_efficient_attention()
-        self.pipe.to("cuda")
+        self.feature_extractor = CLIPFeatureExtractor()
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.load_model()
+        # check if self.current_model has ckpt extension
+        # if self.current_model.endswith(".ckpt"):
+        #     print("found checkpoint file")
+        #     self.current_model = "/home/joe/Projects/ai/runai2/stablediffusion/stable-diffusion-v1-5"
+        # self.current_model = "/home/joe/Projects/ai/runai2/models/stable-diffusion-v1-5"
+
+        if self.do_nsfw_filter:
+            self.txt2img = StableDiffusionPipelineSafe.from_pretrained(
+                self.model_path,
+                torch_dtype=torch.half,
+                scheduler=self.scheduler,
+                low_cpu_mem_usage=True,
+                # safety_checker=self.safety_checker,
+                # feature_extractor=self.feature_extractor,
+                # revision="fp16"
+            )
+        else:
+            self.txt2img = StableDiffusionPipeline.from_pretrained(
+                self.model_path,
+                torch_dtype=torch.half,
+                scheduler=self.scheduler,
+                low_cpu_mem_usage=True,
+                safety_checker=None,
+            )
+        self.txt2img.enable_xformers_memory_efficient_attention()
+        self.txt2img.to("cuda")
+        self.img2img = StableDiffusionImg2ImgPipeline(**self.txt2img.components)
+        self.inpaint = StableDiffusionInpaintPipeline(**self.txt2img.components)
+
+    schedulers = {
+        "ddpm": DDPMScheduler,
+        "ddim": DDIMScheduler,
+        "plms": PNDMScheduler,
+        "lms": LMSDiscreteScheduler,
+        "euler_a": EulerAncestralDiscreteScheduler,
+        "euler": EulerDiscreteScheduler,
+        "dpm": DPMSolverMultistepScheduler,
+    }
+
+    registered_schedulers = {}
+
+    @property
+    def scheduler(self):
+        if not self.model_path or self.model_path == "":
+            raise Exception("Chicken / egg problem, model path not set")
+        if self.scheduler_name in self.schedulers:
+            if self.scheduler_name not in self.registered_schedulers:
+                self.registered_schedulers[self.scheduler_name] = self.schedulers[self.scheduler_name].from_pretrained(
+                    self.model_path,
+                    subfolder="scheduler"
+                )
+            return self.registered_schedulers[self.scheduler_name]
+        else:
+            raise ValueError("Invalid scheduler name")
+
+    def change_scheduler(self):
+        if self.model_path and self.model_path != "":
+            self.txt2img.scheduler = self.scheduler
+            self.img2img.scheduler = self.scheduler
+            self.inpaint.scheduler = self.scheduler
+
 
     def generator_sample(self, data, image_handler):
         self.image_handler = image_handler
         return self.generate(data)
 
+    def convert(self, model):
+        # get location of .ckpt file
+        model_path = model.replace(".ckpt", "")
+        model_name = model_path.split("/")[-1]
+
+        required_files = [
+            "feature_extractor/preprocessor_config.json",
+            "safety_checker/config.json",
+            "safety_checker/pytorch_model.bin",
+            "scheduler/scheduler_config.json",
+            "text_encoder/config.json",
+            "text_encoder/pytorch_model.bin",
+            "tokenizer/merges.txt",
+            "tokenizer/vocab.json",
+            "tokenizer/tokenizer_config.json",
+            "tokenizer/special_tokens_map.json",
+            "unet/config.json",
+            "unet/diffusion_pytorch_model.bin",
+            "vae/config.json",
+            "vae/diffusion_pytorch_model.bin",
+            "model_index.json",
+        ]
+
+        missing_files = False
+        for required_file in required_files:
+            if not os.path.isfile(f"{model_path}/{required_file}"):
+                logger.warning(f"missing file {model_path}/{required_file}")
+                missing_files = True
+                break
+
+        if missing_files:
+            dump_path = f"./models/stablediffusion/{model_name}"
+            version = "v1-5"
+            from scripts.convert import convert
+            logger.info("Converting model")
+            convert(
+                extract_ema=True,
+                checkpoint_path=model,
+                dump_path=model_path,
+                original_config_file=f"./models/stable-diffusion-{version}/v1-inference.yaml",
+            )
+            logger.info("ckpt converted to diffusers")
+        return model_path
+
+    def initialize(self):
+        self.load_model()
+        self.initialized = True
+
     def generate(self, data):
         options = data["options"]
 
-        # get model and switch to it
-        self.current_model = options.get("model", self.current_model)
-
         # Get the other values from options
-        seed = int(options.get("seed", 42))
-        guidance_scale = float(options.get("scale", 7.5))
-        num_inference_steps = int(options.get("ddim_steps", 50))
-        negative_prompt = options.get("negative_prompt", "")
-        do_nsfw_filter = bool(options.get("do_nsfw_filter", False))
-        do_watermark = bool(options.get("do_watermark", False))
-        prompt = options.get("prompt", "")
-        C = int(options.get("C", 4))
-        f = int(options.get("f", 8))
-        batch_size = int(data.get("n_samples", 1))
+        action = data.get("action", "txt2img")
+
+        scheduler_name = options.get(f"{action}_scheduler", "ddpm")
+        if self.scheduler_name != scheduler_name:
+            self.scheduler_name = scheduler_name
+            self.change_scheduler()
+        #
+        # # get model and switch to it
+        model = options.get(f"{action}_model", self.current_model)
+
+        print("MODEL REQUESTED: ", model)
+
+        # if model is ckpt
+        if model.endswith(".ckpt"):
+            model = self.convert(model)
+
+        if action in ["inpaint", "outpaint"]:
+            if model in [
+                "stable-diffusion-2-1-base",
+                "stable-diffusion-2-base"
+            ]:
+                model = "stable-diffusion-2-inpainting"
+            else:
+                model = "stable-diffusion-inpainting"
+
+        if model != self.current_model:
+            self.current_model = model
+
+        if not self.initialized:
+            self.initialize()
+
+        seed = int(options.get(f"{action}_seed", 42))
+        guidance_scale = float(options.get(f"{action}_scale", 7.5))
+        num_inference_steps = int(options.get(f"{action}_ddim_steps", 50))
+        self.num_inference_steps = num_inference_steps
+        self.strength = float(options.get(f"{action}_strength", 1.0))
+
+        do_nsfw_filter = bool(options.get(f"do_nsfw_filter", False))
+        do_watermark = bool(options.get(f"do_watermark", False))
+        enable_community_models = bool(options.get(f"enable_community_models", False))
+        if do_nsfw_filter != self.do_nsfw_filter:
+            self.do_nsfw_filter = do_nsfw_filter
+            self.load_model()
+        if do_watermark != self.do_watermark:
+            self.do_watermark = do_watermark
+            self.load_model()
+        prompt = options.get(f"{action}_prompt", "")
+        negative_prompt = options.get(f"{action}_negative_prompt", "")
+        C = int(options.get(f"{action}_C", 4))
+        f = int(options.get(f"{action}_f", 8))
+        batch_size = int(data.get(f"{action}_n_samples", 1))
 
         # sample the model
         with torch.no_grad() as _torch_nograd, \
             torch.cuda.amp.autocast() as _torch_autocast:
-            # try:
+            try:
                 # clear cuda cache
                 for n in range(0, batch_size):
                     seed = seed + n
-                    filename = seed
+                    print("GETTING READY TO SEED WITH ", seed)
                     seed_everything(seed)
-                    image = self.pipe(
-                        prompt,
-                        guidance_scale=guidance_scale,
-                        num_inference_steps=num_inference_steps
-                    ).images[0]
+                    image = None
+                    if action == "txt2img":
+                        image = self.txt2img(
+                            prompt,
+                            negative_prompt=negative_prompt,
+                            guidance_scale=guidance_scale,
+                            num_inference_steps=num_inference_steps,
+                            callback=self.callback
+                        ).images[0]
+                    elif action == "img2img":
+                        bytes = base64.b64decode(data["options"]["pixels"])
+                        image = Image.open(io.BytesIO(bytes))
+                        image = self.img2img(
+                            prompt=prompt,
+                            negative_prompt=negative_prompt,
+                            image=image.convert("RGB"),
+                            strength=self.strength,
+                            guidance_scale=guidance_scale,
+                            num_inference_steps=num_inference_steps,
+                            callback=self.callback
+                        ).images[0]
+                        pass
+                    elif action in ["inpaint", "outpaint"]:
+                        bytes = base64.b64decode(data["options"]["pixels"])
+                        mask_bytes = base64.b64decode(data["options"]["mask"])
+
+                        image = Image.open(io.BytesIO(bytes))
+                        mask = Image.open(io.BytesIO(mask_bytes))
+
+                        # convert mask to 1 channel
+                        # print mask shape
+                        image = self.inpaint(
+                            prompt=prompt,
+                            negative_prompt=negative_prompt,
+                            image=image,
+                            mask_image=mask,
+                            guidance_scale=guidance_scale,
+                            num_inference_steps=num_inference_steps,
+                            callback=self.callback
+                        ).images[0]
+                        pass
 
                     # use pillow to convert the image to a byte array
-                    img_byte_arr = io.BytesIO()
-                    image.save(img_byte_arr, format='PNG')
-                    img_byte_arr = img_byte_arr.getvalue()
-                    #return flask.Response(img_byte_arr, mimetype='image/png')
-                    self.image_handler(img_byte_arr, data)
+                    if image:
+                        img_byte_arr = io.BytesIO()
+                        image.save(img_byte_arr, format='PNG')
+                        img_byte_arr = img_byte_arr.getvalue()
+                        #return flask.Response(img_byte_arr, mimetype='image/png')
+                        self.image_handler(img_byte_arr, data)
+            except TypeError as e:
+                if action in ["inpaint", "outpaint"]:
+                    print(f"ERROR IN {action}")
+                print(e)
             # except Exception as e:
             #     print("Error during generation 1")
             #     print(e)
             #     #return flask.jsonify({"error": str(e)})
 
-class Server(flask.Flask):
+    def callback(self, step, time_step, latents):
+        self.tqdm_callback(step, int(self.num_inference_steps * self.strength))
+
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        torch.cuda.empty_cache()
-        self.pipe = StableDiffusionPipeline.from_pretrained(
-            "runwayml/stable-diffusion-v1-5",
-            torch_dtype=torch.half,
-            #revision="fp16"
-        )
-        self.pipe.skip_nsfw = True
-        # enable_xformers_memory_efficient_attention
-        self.pipe.enable_xformers_memory_efficient_attention()
-        self.pipe.to("cuda")
-
-        # add endpoints
-        self.add_url_rule('/', 'generate', self.generate, methods=['POST'])
-        self.add_url_rule('/switch-model', 'switch_model', self.switch_model, methods=['POST'])
-
-    def run(self, *args, **kwargs):
-        super().run(*args, **kwargs)
-
-    # create endpoint
-    def generate(self):
-        # get data from request
-        data = flask.request.json
-
-        options = data["options"]
-
-        # set the seed
-        seed = options.get("seed", 42)
-        guidance_scale = options.get("scale", 7.5)
-        num_inference_steps = options.get("ddim_steps", 50)
-        negative_prompt = options.get("negative_prompt", "")
-        do_nsfw_filter = options.get("do_nsfw_filter", False)
-        do_watermark = options.get("do_watermark", False)
-        prompt = options.get("prompt", "")
-        C = options.get("C", 4)
-        f = options.get("f", 8)
-        batch_size = data.get("n_samples", 1)
-
-        with torch.no_grad() as _torch_nograd, \
-            torch.cuda.amp.autocast() as _torch_autocast:
-            try:
-                # clear cuda cache
-                for n in range(0, batch_size):
-                    seed = seed + n
-                    filename = seed
-                    seed_everything(seed)
-                    image = self.pipe(
-                        prompt,
-                        guidance_scale=guidance_scale,
-                        num_inference_steps=num_inference_steps
-                    ).images[0]
-
-                    # use pillow to convert the image to a byte array
-                    img_byte_arr = io.BytesIO()
-                    image.save(img_byte_arr, format='PNG')
-                    img_byte_arr = img_byte_arr.getvalue()
-                    return flask.Response(img_byte_arr, mimetype='image/png')
-
-                    #image.save(f"output/{filename}.png")
-            except Exception as e:
-                print("Error during generation 2")
-                print(e)
-                return flask.jsonify({"error": str(e)})
-
-
-    def switch_model(self):
-        # get data from request
-        data = flask.request.json
-        model_id = data["model_id"]
-        torch.cuda.empty_cache()
-        self.pipe = StableDiffusionPipeline.from_pretrained(
-            model_id,
-            torch_dtype=torch.half,
-            revision="fp16"
-        )
-        self.pipe.skip_nsfw = True
-        # enable_xformers_memory_efficient_attention
-        self.pipe.enable_xformers_memory_efficient_attention()
-        self.pipe.to("cuda")
-
-        # return text
-        return flask.jsonify({
-            "output": "model switched"
-        })
-
-
-# create a SocketServer that does the same thing as the Flask server but uses sockets
-class SocketServerOld:
-    def __init__(self, host="localhost", port=5000):
-        self.socket = None
-        self.host = host
-        self.port = port
-        self.start_server()
-
-    def start_server(self):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind((self.host, self.port))
-        print("listening on port", self.port)
-        self.wait_for_connection()
-
-
-    def wait_for_connection(self):
-        # accept client connection
-        self.conn, self.addr = self.socket.accept()
-        print('Connected by', self.addr)
-
-    def run(self):
-        while True:
-            data = self.conn.recv(1024)
-            if not data:
-                break
-            print("received data:", data)
-            self.conn.sendall(data)
-        self.conn.close()
-
-    def generate(self):
-        # get data from request
-        data = flask.request.json
-
-        options = data["options"]
-
-        # set the seed
-        seed = options.get("seed", 42)
-        guidance_scale = options.get("scale", 7.5)
-        num_inference_steps = options.get("ddim_steps", 50)
-        negative_prompt = options.get("negative_prompt", "")
-        do_nsfw_filter = options.get("do_nsfw_filter", False)
-        do_watermark = options.get("do_watermark", False)
-        prompt = options.get("prompt", "")
-        C = options.get("C", 4)
-        f = options.get("f", 8)
-        batch_size = data.get("n_samples", 1)
-
-        with torch.no_grad() as _torch_nograd, \
-                torch.cuda.amp.autocast() as _torch_autocast:
-            try:
-                # clear cuda cache
-                for n in range(0, batch_size):
-                    seed = seed + n
-                    filename = seed
-                    seed_everything(seed)
-                    image = self.pipe(
-                        prompt,
-                        guidance_scale=guidance_scale,
-                        num_inference_steps=num_inference_steps
-                    ).images[0]
-
-                    # use pillow to convert the image to a byte array
-                    img_byte_arr = io.BytesIO()
-                    image.save(img_byte_arr, format='PNG')
-                    img_byte_arr = img_byte_arr.getvalue()
-                    self.send_message(img_byte_arr)
-
-                    # image.save(f"output/{filename}.png")
-            except Exception as e:
-                print("Error during generation 3")
-                print(e)
-                # use send_message to send the error to the client
-                self.send_message({"error": str(e)})
-
-    def send_message(self, message):
-        self.conn.sendall(message)
+        self.tqdm_callback = kwargs.get("tqdm_callback", None)
+        super().__init__(*args)
 
 
 class Connection:
@@ -330,13 +385,13 @@ class Connection:
         logger.info("Stopping connection thread...")
         for index, thread in enumerate(self.threads):
             total = len(self.threads)
-            name = thread.getName()
+            name = thread.name
             logger.info(f"{index+1} of {total} Stopping thread {name}")
             try:
                 thread.join()
             except RuntimeError:
-                logger.info(f"Thread {thread.getName()} not running")
-            logger.info(f"Stopped thread {thread.getName()}...")
+                logger.info(f"Thread {thread.name} not running")
+            logger.info(f"Stopped thread {thread.name}...")
         logger.info("All threads stopped")
 
     def __init__(self, *args, **kwargs):
@@ -433,6 +488,7 @@ class SocketServer(SocketConnection):
         :param msg:
         :return:
         """
+        pass
 
     def worker(self):
         """
@@ -441,6 +497,7 @@ class SocketServer(SocketConnection):
         method. The callback method should be overridden to handle the message.
         :return:
         """
+        pass
 
     def open_socket(self):
         """
@@ -556,33 +613,6 @@ class SocketServer(SocketConnection):
     def is_cancel_message(self, chunk):
         return self.is_expected_message(chunk, b'c')
 
-    def is_model_switch_message(self, chunk):
-        bytes = [
-            {
-                "byte": b'A',
-                "model": "v1-4"
-            },
-            {
-                "byte": b'B',
-                "model": "v1-5"
-            },
-            {
-                "byte": b'C',
-                "model": "v1-5-inpainting"
-            },
-            {
-                "byte": b'Z',
-                "model": "custom"
-            },
-        ]
-        selected_model = None
-        for item in bytes:
-            if self.is_expected_message(chunk, item["byte"]):
-                selected_model = item["model"]
-                break
-        return selected_model
-
-
     def handle_quit_message(self):
         logger.info("Quit")
         self.quit_event.set()
@@ -609,9 +639,6 @@ class SocketServer(SocketConnection):
 
     def get_chunk(self):
         chunk = self.soc_connection.recv(self.signal_byte_size)
-        if chunk == b'':
-            raise RuntimeError("socket connection broken")
-        chunk = chunk.strip(b'\x00')
         return chunk
 
     def handle_open_socket(self):
@@ -651,11 +678,16 @@ class SocketServer(SocketConnection):
                     bytes_recd = 0
                     while True:
                         chunk = self.get_chunk()
-
                         # if chunk size is 0 then it tells us the
                         # client is done sending the message
-                        if len(chunk) == 0:
+                        if chunk == b'\x00' * 1024:
                             break
+
+                        # strip the chunk of any null bytes
+                        chunk = chunk.strip(b'\x00')
+
+                        if chunk == b'':
+                            raise RuntimeError("socket connection broken")
 
                         if self.is_quit_message(chunk):
                             self.handle_quit_message()
@@ -665,10 +697,10 @@ class SocketServer(SocketConnection):
                             self.handle_cancel_message()
                             break
 
-                        switch_model = self.is_model_switch_message(chunk)
-                        if switch_model:
-                            self.switch_model(switch_model)
-                            break
+                        # switch_model = self.is_model_switch_message(chunk)
+                        # if switch_model:
+                        #     self.switch_model(switch_model)
+                        #     break
 
                         if chunk != b'':
                             chunks.append(chunk)
@@ -815,13 +847,13 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
             # convert ascii to json
             data = json.loads(data.decode("ascii"))
             # get reqtype based on action in data
-            actionID = data.get("action", None)
             self.image_size = data.get("W", None)
 
-            for k,v in settings.ACTIONS.items():
-                if k == actionID:
-                    reqtype = k
-                    break
+            reqtype = data["action"]
+            # for k,v in settings.ACTIONS.items():
+            #     if k == actionID:
+            #         reqtype = k
+            #         break
         except UnicodeDecodeError as err:
             logger.error(f"something went wrong with a request from the client")
             logger.error(f"UnicodeDecodeError: {err}")
@@ -830,17 +862,12 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
             logger.error(f"Improperly formatted request from client")
             return
         data["reqtype"] = reqtype
-        if reqtype == "txt2img" or reqtype == "img2img":
-            # iterate over data and print everything but init_img
-            for k,v in data.items():
-                if k != "init_img":
-                    logger.info(f"{k}: {v}")
+        self.reqtype = reqtype
+        if reqtype in ["txt2img", "img2img", "inpaint", "outpaint"]:
             self.sdrunner.generator_sample(data, self.handle_image)
-            logger.info("Text to image sample complete")
-        elif reqtype == "Inpainting":
-            self.sdrunner.inpaint_sample(data, self.handle_image)
+            logger.info("Image sample complete")
         else:
-            logger.error("NO IMAGE RESPONSE")
+            logger.error(f"NO IMAGE RESPONSE for reqtype {reqtype}")
 
     def handle_image(self, response, options):
         if response is not None and response != b'':
@@ -939,6 +966,35 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         )
         sd_runner_thread.join()
 
+    def tqdm_callback(self, step, total_steps):
+        msg = {
+            "action": codes.PROGRESS, 
+            "step": step, 
+            "total":total_steps,
+            "reqtype": self.reqtype
+        }
+        msg = json.dumps(msg).encode()
+        msg = msg + b'\x00' * (1024 - len(msg))
+        self.do_send(msg)
+        self.send_end_message()
+        time.sleep(0.001)
+
+    def send_image_chunk(self, image_chunk):
+        """
+        Send an image chunk to the client
+        :param image_chunk: the image chunk to send
+        :return: None
+        """
+        chunk = image_chunk + b'\x00' * (1024 - len(image_chunk))
+        self.do_send(chunk)
+        time.sleep(0.001)
+
+    def send_end_message(self):
+        # send a message of all zeroes of expected_byte_size length
+        # to indicate that the image is being sent
+        self.do_send(b'\x00' * 1024)
+        time.sleep(0.001)
+
     def __init__(self, *args, **kwargs):
         """
         Initialize the worker
@@ -947,13 +1003,14 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         self.port = kwargs.get("port", settings.DEFAULT_PORT)
         self.host = kwargs.get("host", settings.DEFAULT_HOST)
         self.safety_model = kwargs.get("safety_model")
-        self.model_name = kwargs.get("model_name")
         self.model_version = kwargs.get("model_version")
         self.safety_feature_extractor = kwargs.get("safety_feature_extractor")
         self.safety_model_path = kwargs.get("safety_model_path"),
         self.safety_feature_extractor_path = kwargs.get("safety_feature_extractor_path")
 
-        self.sdrunner = SDRunner()
+        self.sdrunner = SDRunner(
+            tqdm_callback=self.tqdm_callback
+        )
 
         self.do_start()
         super().__init__(*args, **kwargs)
@@ -968,7 +1025,19 @@ class FastStableDiffusionRequestQueueWorker(StableDiffusionRequestQueueWorker):
         them to the client
         """
 
-    def handle_image(self, response, options):
+    def handle_image(self, image, options):
+        print("HANDLE IMAGE RESPONSE")
+        # image is bytes and therefore not json serializable,
+        # convert it to base64 first
+        image = base64.b64encode(image).decode()
+        response = {
+            "image": image,
+            "reqtype": options["reqtype"],
+            "pos_x": options["options"]["pos_x"],
+            "pos_y": options["options"]["pos_y"],
+        }
+        # encode response as a byte string
+        response = json.dumps(response).encode()
         if response is not None and response != b'':
           # logger.info("prepping image")
             img = response #self.prep_image(response, options)
@@ -985,15 +1054,12 @@ class FastStableDiffusionRequestQueueWorker(StableDiffusionRequestQueueWorker):
                 # send message in chunks
                 chunk_size = 1024
                 for i in range(0, len(img), chunk_size):
-                    bytes_sent += self.send_msg(img[i:i + chunk_size])
-                    time.sleep(0.001)
-                time.sleep(0.1)
+                    chunk = img[i:i + chunk_size]
+                    self.send_image_chunk(chunk)
 
-                logger.info(f"sent {bytes_sent} bytes")
-                # send a message of all zeroes of expected_byte_size length
-                # to indicate that the image is being sent
-                bytes_sent = self.send_msg(b'\x00')
-                logger.info(f"sent {bytes_sent} bytes")
+                time.sleep(0.001)
+                self.send_end_message()
+
                 if self.soc_connection:
                     #self.soc_connection.settimeout(1)
                     pass
@@ -1018,9 +1084,7 @@ if __name__ == '__main__':
     # app.run(debug=True)
     port = 5000
     host = "http://localhost"
-    model_name = "runwayml/stable-diffusion-v1-5"
     app = FastStableDiffusionRequestQueueWorker(
         port=port,
-        host=host,
-        model_name=model_name
+        host=host
     )
