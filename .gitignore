@@ -1,4 +1,7 @@
 diffusers
+CompVis
+models
+openai
 output
 stablediffusion
 __pycache__
