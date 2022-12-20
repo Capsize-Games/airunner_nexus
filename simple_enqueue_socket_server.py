@@ -41,7 +41,7 @@ class SimpleEnqueueSocketServer(SocketServer):
                         except Exception as err:  # pylint: disable=broad-except
                             logger.info(f"callback error: {err}")
                             raise (err)
-                except self.queue.Empty:
+                except queue.Empty:
                     pass
             if self.quit_event.is_set():
                 break

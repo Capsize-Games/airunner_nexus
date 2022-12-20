@@ -1,3 +1,4 @@
+import base64
 import json
 import io
 import numpy as np
@@ -6,7 +7,7 @@ import messagecodes as codes
 from PIL import Image
 from runner import SDRunner
 from logger import logger
-from exceptions import FailedToSendError, NoConnectionToClientError
+from exceptions import FailedToSendError
 from simple_enqueue_socket_server import SimpleEnqueueSocketServer
 
 
@@ -27,12 +28,7 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
             data = json.loads(data.decode("ascii"))
             # get reqtype based on action in data
             self.image_size = data.get("W", None)
-
             reqtype = data["action"]
-            # for k,v in settings.ACTIONS.items():
-            #     if k == actionID:
-            #         reqtype = k
-            #         break
         except UnicodeDecodeError as err:
             logger.error(f"something went wrong with a request from the client")
             logger.error(f"UnicodeDecodeError: {err}")
@@ -48,68 +44,41 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         else:
             logger.error(f"NO IMAGE RESPONSE for reqtype {reqtype}")
 
+    def send_message(self, message):
+        """
+        Send a message to the client in 1024 byte chunks
+        :param message:
+        :return:
+        """
+        chunk_size = 1024
+        for i in range(0, len(message), chunk_size):
+            chunk = message[i:i + chunk_size]
+            self.do_send(chunk + b'\x00' * (1024 - len(chunk)))
+
     def handle_image(self, image, options):
-        print("HANDLE IMAGE RESPONSE")
-        # image is bytes and therefore not json serializable,
-        # convert it to base64 first
-        image = base64.b64encode(image).decode()
-        response = {
-            "image": image,
+        message = json.dumps({
+            "image": base64.b64encode(image).decode(),
             "reqtype": options["reqtype"],
             "pos_x": options["options"]["pos_x"],
             "pos_y": options["options"]["pos_y"],
-        }
-        # encode response as a byte string
-        response = json.dumps(response).encode()
-        if response is not None and response != b'':
-            # logger.info("prepping image")
-            img = response  # self.prep_image(response, options)
+        }).encode()
+        if message is not None and message != b'':
             try:
-                bytes_sent = 0
-                # expected_byte_size = settings.BYTE_SIZES[self.image_size]
-                # actual_size = len(img)
-                #
-                # if actual_size < expected_byte_size:
-                #     print("sending image of size {}".format(actual_size))
-                #     # pad the image img_bytes with zeros
-                #     img = img + b'\x00' * (expected_byte_size - actual_size)
-
-                # send message in chunks
-                chunk_size = 1024
-                for i in range(0, len(img), chunk_size):
-                    chunk = img[i:i + chunk_size]
-                    self.send_image_chunk(chunk)
-
-                # time.sleep(0.001)
+                self.send_message(message)
                 self.send_end_message()
-
-                if self.soc_connection:
-                    # self.soc_connection.settimeout(1)
-                    pass
-                else:
+                if not self.soc_connection:
                     raise FailedToSendError()
             except FailedToSendError as ect:
                 logger.error("failed to send message")
-                # cancel the current run
-                self.sdrunner.cancel()
+                self.cancel()
                 logger.error(ect)
                 self.reset_connection()
 
-    def prep_image(self, response, options, dtype=np.uint8):
+    def prep_image(self, response, _options, dtype=np.uint8):
         # logger.info("sending response")
         buffered = io.BytesIO()
         Image.fromarray(response.astype(dtype), 'RGB').save(buffered)
         image = buffered.getvalue()
-
-        if "remove_background" in options and options["remove_background"]:
-            #image = rembg.remove(image)
-            print("remove image background")
-            pass
-        #
-        # # if options.gfpgan is set, run the image through gfpgan to fix faces
-        # if "gfpgan" in options and options["gfpgan"]:
-        #     pass
-
         return image
 
     def cancel(self):
@@ -131,6 +100,7 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         return: None
         """
         logger.info("Starting Stable Diffusion Runner")
+        self.sdrunner = SDRunner(tqdm_callback=self.tqdm_callback)
 
     def do_start(self):
         # create a stable diffusion runner service
@@ -156,23 +126,11 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         msg = msg + b'\x00' * (1024 - len(msg))
         self.do_send(msg)
         self.send_end_message()
-        #time.sleep(0.001)
-
-    def send_image_chunk(self, image_chunk):
-        """
-        Send an image chunk to the client
-        :param image_chunk: the image chunk to send
-        :return: None
-        """
-        chunk = image_chunk + b'\x00' * (1024 - len(image_chunk))
-        self.do_send(chunk)
-        #time.sleep(0.001)
 
     def send_end_message(self):
         # send a message of all zeroes of expected_byte_size length
         # to indicate that the image is being sent
         self.do_send(b'\x00' * 1024)
-        #time.sleep(0.001)
 
     def __init__(self, *args, **kwargs):
         """
@@ -186,10 +144,5 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         self.safety_feature_extractor = kwargs.get("safety_feature_extractor")
         self.safety_model_path = kwargs.get("safety_model_path"),
         self.safety_feature_extractor_path = kwargs.get("safety_feature_extractor_path")
-
-        self.sdrunner = SDRunner(
-            tqdm_callback=self.tqdm_callback
-        )
-
         self.do_start()
         super().__init__(*args, **kwargs)

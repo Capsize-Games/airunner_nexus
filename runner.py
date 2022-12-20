@@ -42,13 +42,6 @@ class SDRunner:
     @property
     def model_path(self):
         model_path = self.current_model
-        # if self.current_model in [
-        #     "stabilityai/stable-diffusion-v1-5",
-        #     "stable-diffusion-inpainting",
-        #     "stabilityai/stable-diffusion-2-1-base",
-        #     "stabilityai/stable-diffusion-2-inpainting",
-        # ]:
-        #     model_path = self.current_model
         return model_path
 
     def load_model(self):
@@ -57,13 +50,6 @@ class SDRunner:
         self.safety_checker = StableDiffusionSafetyChecker(
             StableDiffusionSafetyChecker.config_class()
         )
-        #self.feature_extractor = CLIPFeatureExtractor()
-
-        # check if self.current_model has ckpt extension
-        # if self.current_model.endswith(".ckpt"):
-        #     print("found checkpoint file")
-        #     self.current_model = "/home/joe/Projects/ai/runai2/stablediffusion/stable-diffusion-v1-5"
-        # self.current_model = "/home/joe/Projects/ai/runai2/models/stable-diffusion-v1-5"
 
         if self.do_nsfw_filter:
             self.txt2img = StableDiffusionPipelineSafe.from_pretrained(
@@ -73,7 +59,7 @@ class SDRunner:
                 low_cpu_mem_usage=True,
                 # safety_checker=self.safety_checker,
                 # feature_extractor=self.feature_extractor,
-                # revision="fp16"
+                revision="fp16"
             )
         else:
             self.txt2img = StableDiffusionPipeline.from_pretrained(
@@ -82,6 +68,7 @@ class SDRunner:
                 scheduler=self.scheduler,
                 low_cpu_mem_usage=True,
                 safety_checker=None,
+                revision="fp16"
             )
         self.txt2img.enable_xformers_memory_efficient_attention()
         self.txt2img.to("cuda")
@@ -170,30 +157,18 @@ class SDRunner:
         return model_path
 
     def initialize(self):
-        self.load_model()
-        self.initialized = True
+        if not self.initialized:
+            self.load_model()
+            self.initialized = True
 
-    def generate(self, data):
-        options = data["options"]
+    def prepare_model(self):
+        # get model and switch to it
+        model = self.options.get(f"{self.action}_model", self.current_model)
 
-        # Get the other values from options
-        action = data.get("action", "txt2img")
-
-        scheduler_name = options.get(f"{action}_scheduler", "ddpm")
-        if self.scheduler_name != scheduler_name:
-            self.scheduler_name = scheduler_name
-            self.change_scheduler()
-        #
-        # # get model and switch to it
-        model = options.get(f"{action}_model", self.current_model)
-
-        print("MODEL REQUESTED: ", model)
-
-        # if model is ckpt
         if model.endswith(".ckpt"):
             model = self.convert(model)
 
-        if action in ["inpaint", "outpaint"]:
+        if self.action in ["inpaint", "outpaint"]:
             if model in [
                 "stabilityai/stable-diffusion-2-1-base",
                 "stabilityai/stable-diffusion-2-base"
@@ -205,62 +180,78 @@ class SDRunner:
         if model != self.current_model:
             self.current_model = model
 
-        if not self.initialized:
-            self.initialize()
+    def prepare_scheduler(self):
+        scheduler_name = self.options.get(f"{self.action}_scheduler", "ddpm")
+        if self.scheduler_name != scheduler_name:
+            self.scheduler_name = scheduler_name
+            self.change_scheduler()
 
-        seed = int(options.get(f"{action}_seed", 42))
-        guidance_scale = float(options.get(f"{action}_scale", 7.5))
-        num_inference_steps = int(options.get(f"{action}_ddim_steps", 50))
-        self.num_inference_steps = num_inference_steps
+    def prepare_options(self, data):
+        action = data.get("action", "txt2img")
+        options = data["options"]
+        self.reload_model = False
+        self.seed = int(options.get(f"{action}_seed", 42))
+        self.guidance_scale = float(options.get(f"{action}_scale", 7.5))
+        self.num_inference_steps = int(options.get(f"{action}_ddim_steps", 50))
         self.strength = float(options.get(f"{action}_strength", 1.0))
-
+        self.enable_community_models = bool(options.get(f"enable_community_models", False))
+        self.C = int(options.get(f"{action}_C", 4))
+        self.f = int(options.get(f"{action}_f", 8))
+        self.prompt = options.get(f"{action}_prompt", "")
+        self.negative_prompt = options.get(f"{action}_negative_prompt", "")
+        self.batch_size = int(data.get(f"{action}_n_samples", 1))
         do_nsfw_filter = bool(options.get(f"do_nsfw_filter", False))
         do_watermark = bool(options.get(f"do_watermark", False))
-        enable_community_models = bool(options.get(f"enable_community_models", False))
         if do_nsfw_filter != self.do_nsfw_filter:
             self.do_nsfw_filter = do_nsfw_filter
-            self.load_model()
+            self.reload_model = True
         if do_watermark != self.do_watermark:
             self.do_watermark = do_watermark
+            self.reload_model = True
+        self.action = action
+        self.options = options
+
+    def do_reload_model(self):
+        if self.reload_model:
             self.load_model()
-        prompt = options.get(f"{action}_prompt", "")
-        negative_prompt = options.get(f"{action}_negative_prompt", "")
-        C = int(options.get(f"{action}_C", 4))
-        f = int(options.get(f"{action}_f", 8))
-        batch_size = int(data.get(f"{action}_n_samples", 1))
+
+    def generate(self, data):
+        self.prepare_options(data)
+        self.prepare_scheduler()
+        self.prepare_model()
+        self.initialize()
+        self.do_reload_model()
 
         # sample the model
         with torch.no_grad() as _torch_nograd, \
             torch.cuda.amp.autocast() as _torch_autocast:
             try:
-                # clear cuda cache
-                for n in range(0, batch_size):
-                    seed = seed + n
-                    print("GETTING READY TO SEED WITH ", seed)
-                    seed_everything(seed)
+                for n in range(0, self.batch_size):
+                    self.seed = self.seed + n
+                    seed_everything(self.seed)
                     image = None
-                    if action == "txt2img":
+                    if self.action == "txt2img":
                         image = self.txt2img(
-                            prompt,
-                            negative_prompt=negative_prompt,
-                            guidance_scale=guidance_scale,
-                            num_inference_steps=num_inference_steps,
+                            self.prompt,
+                            negative_prompt=self.negative_prompt,
+                            guidance_scale=self.guidance_scale,
+                            num_inference_steps=self.num_inference_steps,
                             callback=self.callback
                         ).images[0]
-                    elif action == "img2img":
+                    elif self.action == "img2img":
                         bytes = base64.b64decode(data["options"]["pixels"])
                         image = Image.open(io.BytesIO(bytes))
                         image = self.img2img(
-                            prompt=prompt,
-                            negative_prompt=negative_prompt,
+                            prompt=self.prompt,
+                            negative_prompt=self.negative_prompt,
                             image=image.convert("RGB"),
                             strength=self.strength,
-                            guidance_scale=guidance_scale,
-                            num_inference_steps=num_inference_steps,
+                            guidance_scale=self.guidance_scale,
+                            num_inference_steps=self.num_inference_steps,
                             callback=self.callback
                         ).images[0]
                         pass
-                    elif action in ["inpaint", "outpaint"]:
+                    elif self.action in ["inpaint", "outpaint"]:
                         bytes = base64.b64decode(data["options"]["pixels"])
                         mask_bytes = base64.b64decode(data["options"]["mask"])
 
@@ -270,31 +261,36 @@ class SDRunner:
                         # convert mask to 1 channel
                         # print mask shape
                         image = self.inpaint(
-                            prompt=prompt,
-                            negative_prompt=negative_prompt,
+                            prompt=self.prompt,
+                            negative_prompt=self.negative_prompt,
                             image=image,
                             mask_image=mask,
-                            guidance_scale=guidance_scale,
-                            num_inference_steps=num_inference_steps,
+                            guidance_scale=self.guidance_scale,
+                            num_inference_steps=self.num_inference_steps,
                             callback=self.callback
                         ).images[0]
                         pass
 
                     # use pillow to convert the image to a byte array
-                    if image:
-                        img_byte_arr = io.BytesIO()
-                        image.save(img_byte_arr, format='PNG')
-                        img_byte_arr = img_byte_arr.getvalue()
-                        #return flask.Response(img_byte_arr, mimetype='image/png')
+                    img_byte_arr = self.image_to_byte_array(image)
+                    if img_byte_arr:
                         self.image_handler(img_byte_arr, data)
             except TypeError as e:
-                if action in ["inpaint", "outpaint"]:
-                    print(f"ERROR IN {action}")
+                if self.action in ["inpaint", "outpaint"]:
+                    print(f"ERROR IN {self.action}")
                 print(e)
-            # except Exception as e:
-            #     print("Error during generation 1")
-            #     print(e)
-            #     #return flask.jsonify({"error": str(e)})
+            except Exception as e:
+                print("Error during generation 1")
+                print(e)
+
+    def image_to_byte_array(self, image):
+        img_byte_arr = None
+        if image:
+            img_byte_arr = io.BytesIO()
+            image.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            # return flask.Response(img_byte_arr, mimetype='image/png')
+        return img_byte_arr
 
     def callback(self, step, time_step, latents):
         self.tqdm_callback(step, int(self.num_inference_steps * self.strength))
