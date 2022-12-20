@@ -48,10 +48,52 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         else:
             logger.error(f"NO IMAGE RESPONSE for reqtype {reqtype}")
 
-    def handle_image(self, response, options):
+    def handle_image(self, image, options):
+        print("HANDLE IMAGE RESPONSE")
+        # image is bytes and therefore not json serializable,
+        # convert it to base64 first
+        image = base64.b64encode(image).decode()
+        response = {
+            "image": image,
+            "reqtype": options["reqtype"],
+            "pos_x": options["options"]["pos_x"],
+            "pos_y": options["options"]["pos_y"],
+        }
+        # encode response as a byte string
+        response = json.dumps(response).encode()
         if response is not None and response != b'':
-            img = response#self.prep_image(response, options)
-            self.queue.put(img)
+            # logger.info("prepping image")
+            img = response  # self.prep_image(response, options)
+            try:
+                bytes_sent = 0
+                # expected_byte_size = settings.BYTE_SIZES[self.image_size]
+                # actual_size = len(img)
+                #
+                # if actual_size < expected_byte_size:
+                #     print("sending image of size {}".format(actual_size))
+                #     # pad the image img_bytes with zeros
+                #     img = img + b'\x00' * (expected_byte_size - actual_size)
+
+                # send message in chunks
+                chunk_size = 1024
+                for i in range(0, len(img), chunk_size):
+                    chunk = img[i:i + chunk_size]
+                    self.send_image_chunk(chunk)
+
+                # time.sleep(0.001)
+                self.send_end_message()
+
+                if self.soc_connection:
+                    # self.soc_connection.settimeout(1)
+                    pass
+                else:
+                    raise FailedToSendError()
+            except FailedToSendError as ect:
+                logger.error("failed to send message")
+                # cancel the current run
+                self.sdrunner.cancel()
+                logger.error(ect)
+                self.reset_connection()
 
     def prep_image(self, response, options, dtype=np.uint8):
         # logger.info("sending response")
@@ -78,48 +120,6 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         Wait for responses from the stable diffusion runner and send
         them to the client
         """
-        logger.info("RESPONSE QUEUE WORKER STARTING")
-        while not self.quit_event.is_set():
-            res = self.queue.get()
-            if res is not None and res != b'':
-                if res == b"quit": break
-                if res == b"cancel":
-                    logger.info("response queue: cancel")
-                    self.sdrunner.cancel()
-                    break
-                # logger.info("sending response")
-                # logger.info("GOT SAMPLES FROM IMAGE GENERATOR")
-                img = res
-                bytes_sent = 0
-                # expected_byte_size = settings.BYTE_SIZES[self.image_size]
-                actual_size = len(img)
-                logger.info("SENDING MESSAGE OF SIZE {}".format(actual_size))
-
-                try:
-                    # pad the image img_bytes with zeros
-                    img = res  # + b'\x00' * (expected_byte_size - actual_size)
-                    bytes_sent = self.send_msg(img)
-                    # send a null byte
-                    self.send_msg(b'\x00')
-
-                    # logger.info(f"sent {bytes_sent} bytes")
-
-                    # if self.soc_connection:
-                    #     #self.soc_connection.settimeout(1)
-                    #     pass
-                    # else:
-                    #     raise FailedToSendError(
-                    #         # "%d > %d image too large, refusing to transmit" % (
-                    #         #     actual_size, expected_byte_size
-                    #         # )
-                    #     )
-                except FailedToSendError as ect:
-                    logger.error("failed to send message")
-                    logger.error(ect)
-                    self.reset_connection()
-            if self.quit_event.is_set(): break
-            #time.sleep(0.1)
-        logger.info("ENDING RESPONSE WORKER")
 
     def stop(self):
         super().stop()
