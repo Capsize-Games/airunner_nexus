@@ -27,6 +27,16 @@ class SDRunner:
     do_nsfw_filter = True
     do_watermark = True
     initialized = False
+    schedulers = {
+        "ddpm": DDPMScheduler,
+        "ddim": DDIMScheduler,
+        "plms": PNDMScheduler,
+        "lms": LMSDiscreteScheduler,
+        "euler_a": EulerAncestralDiscreteScheduler,
+        "euler": EulerDiscreteScheduler,
+        "dpm": DPMSolverMultistepScheduler,
+    }
+    registered_schedulers = {}
 
     @property
     def current_model(self):
@@ -43,6 +53,20 @@ class SDRunner:
     def model_path(self):
         model_path = self.current_model
         return model_path
+
+    @property
+    def scheduler(self):
+        if not self.model_path or self.model_path == "":
+            raise Exception("Chicken / egg problem, model path not set")
+        if self.scheduler_name in self.schedulers:
+            if self.scheduler_name not in self.registered_schedulers:
+                self.registered_schedulers[self.scheduler_name] = self.schedulers[self.scheduler_name].from_pretrained(
+                    self.model_path,
+                    subfolder="scheduler"
+                )
+            return self.registered_schedulers[self.scheduler_name]
+        else:
+            raise ValueError("Invalid scheduler name")
 
     def load_model(self):
         torch.cuda.empty_cache()
@@ -75,47 +99,14 @@ class SDRunner:
         self.img2img = StableDiffusionImg2ImgPipeline(**self.txt2img.components)
         self.inpaint = StableDiffusionInpaintPipeline(**self.txt2img.components)
 
-    schedulers = {
-        "ddpm": DDPMScheduler,
-        "ddim": DDIMScheduler,
-        "plms": PNDMScheduler,
-        "lms": LMSDiscreteScheduler,
-        "euler_a": EulerAncestralDiscreteScheduler,
-        "euler": EulerDiscreteScheduler,
-        "dpm": DPMSolverMultistepScheduler,
-    }
-
-    registered_schedulers = {}
-
-    @property
-    def scheduler(self):
-        if not self.model_path or self.model_path == "":
-            raise Exception("Chicken / egg problem, model path not set")
-        if self.scheduler_name in self.schedulers:
-            if self.scheduler_name not in self.registered_schedulers:
-                self.registered_schedulers[self.scheduler_name] = self.schedulers[self.scheduler_name].from_pretrained(
-                    self.model_path,
-                    subfolder="scheduler"
-                )
-            return self.registered_schedulers[self.scheduler_name]
-        else:
-            raise ValueError("Invalid scheduler name")
-
-    def change_scheduler(self):
-        if self.model_path and self.model_path != "":
-            self.txt2img.scheduler = self.scheduler
-            self.img2img.scheduler = self.scheduler
-            self.inpaint.scheduler = self.scheduler
-
-
-    def generator_sample(self, data, image_handler):
-        self.image_handler = image_handler
-        return self.generate(data)
-
     def initialize(self):
         if not self.initialized:
             self.load_model()
             self.initialized = True
+
+    def do_reload_model(self):
+        if self.reload_model:
+            self.load_model()
 
     def prepare_model(self):
         # get model and switch to it
@@ -132,6 +123,12 @@ class SDRunner:
 
         if model != self.current_model:
             self.current_model = model
+
+    def change_scheduler(self):
+        if self.model_path and self.model_path != "":
+            self.txt2img.scheduler = self.scheduler
+            self.img2img.scheduler = self.scheduler
+            self.inpaint.scheduler = self.scheduler
 
     def prepare_scheduler(self):
         scheduler_name = self.options.get(f"{self.action}_scheduler", "ddpm")
@@ -164,9 +161,9 @@ class SDRunner:
         self.action = action
         self.options = options
 
-    def do_reload_model(self):
-        if self.reload_model:
-            self.load_model()
+    def generator_sample(self, data, image_handler):
+        self.image_handler = image_handler
+        return self.generate(data)
 
     def generate(self, data):
         self.prepare_options(data)
