@@ -142,8 +142,10 @@ class SDRunner:
         self.reload_model = False
         self.seed = int(options.get(f"{action}_seed", 42))
         self.guidance_scale = float(options.get(f"{action}_scale", 7.5))
-        self.num_inference_steps = int(options.get(f"{action}_ddim_steps", 50))
-        self.strength = float(options.get(f"{action}_strength", 1.0))
+        self.num_inference_steps = int(options.get(f"{action}_steps", 50))
+        self.strength = float(options.get(f"{action}_strength", 0.8))
+        self.height = int(options.get(f"{action}_height", 512))
+        self.width = int(options.get(f"{action}_width", 512))
         self.enable_community_models = bool(options.get(f"enable_community_models", False))
         self.C = int(options.get(f"{action}_C", 4))
         self.f = int(options.get(f"{action}_f", 8))
