@@ -112,50 +112,6 @@ class SDRunner:
         self.image_handler = image_handler
         return self.generate(data)
 
-    def convert(self, model):
-        # get location of .ckpt file
-        model_path = model.replace(".ckpt", "")
-        model_name = model_path.split("/")[-1]
-
-        required_files = [
-            "feature_extractor/preprocessor_config.json",
-            "safety_checker/config.json",
-            "safety_checker/pytorch_model.bin",
-            "scheduler/scheduler_config.json",
-            "text_encoder/config.json",
-            "text_encoder/pytorch_model.bin",
-            "tokenizer/merges.txt",
-            "tokenizer/vocab.json",
-            "tokenizer/tokenizer_config.json",
-            "tokenizer/special_tokens_map.json",
-            "unet/config.json",
-            "unet/diffusion_pytorch_model.bin",
-            "vae/config.json",
-            "vae/diffusion_pytorch_model.bin",
-            "model_index.json",
-        ]
-
-        missing_files = False
-        for required_file in required_files:
-            if not os.path.isfile(f"{model_path}/{required_file}"):
-                logger.warning(f"missing file {model_path}/{required_file}")
-                missing_files = True
-                break
-
-        if missing_files:
-            dump_path = f"./models/stablediffusion/{model_name}"
-            version = "v1-5"
-            from scripts.convert import convert
-            logger.info("Converting model")
-            convert(
-                extract_ema=True,
-                checkpoint_path=model,
-                dump_path=model_path,
-                original_config_file=f"./models/stable-diffusion-{version}/v1-inference.yaml",
-            )
-            logger.info("ckpt converted to diffusers")
-        return model_path
-
     def initialize(self):
         if not self.initialized:
             self.load_model()
@@ -164,9 +120,6 @@ class SDRunner:
     def prepare_model(self):
         # get model and switch to it
         model = self.options.get(f"{self.action}_model", self.current_model)
-
-        if model.endswith(".ckpt"):
-            model = self.convert(model)
 
         if self.action in ["inpaint", "outpaint"]:
             if model in [
