@@ -6,3 +6,4 @@ output
 stablediffusion
 __pycache__
 *.log
+.idea
