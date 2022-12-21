@@ -13,4 +13,3 @@ data = {
     "num_inference_steps":50,
 }
 response = requests.post(url, json=data)
-print(response.json())

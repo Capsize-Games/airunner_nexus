@@ -112,15 +112,6 @@ class SDRunner:
         # get model and switch to it
         model = self.options.get(f"{self.action}_model", self.current_model)
 
-        if self.action in ["inpaint", "outpaint"]:
-            if model in [
-                "stabilityai/stable-diffusion-2-1-base",
-                "stabilityai/stable-diffusion-2-base"
-            ]:
-                model = "stabilityai/stable-diffusion-2-inpainting"
-            else:
-                model = "stabilityai/stable-diffusion-inpainting"
-
         if model != self.current_model:
             self.current_model = model
 

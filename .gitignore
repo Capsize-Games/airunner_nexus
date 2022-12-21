@@ -4,6 +4,7 @@ models
 openai
 output
 stablediffusion
+authserver
 __pycache__
 *.log
 .idea
