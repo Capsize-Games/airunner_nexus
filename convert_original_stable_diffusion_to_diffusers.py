@@ -18,6 +18,7 @@ import argparse
 import os
 import re
 import torch
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 try:
@@ -633,7 +634,7 @@ def convert_ldm_bert_checkpoint(checkpoint, config):
 
 
 def convert_ldm_clip_checkpoint(checkpoint):
-    text_model = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
+    text_model = CLIPTextModel.from_pretrained(os.path.join(HERE, "lib", "openai/clip-vit-large-patch14"))
 
     keys = list(checkpoint.keys())
 
@@ -673,7 +674,7 @@ textenc_pattern = re.compile("|".join(protected.keys()))
 
 
 def convert_paint_by_example_checkpoint(checkpoint):
-    config = CLIPVisionConfig.from_pretrained("openai/clip-vit-large-patch14")
+    config = CLIPVisionConfig.from_pretrained(os.path.join(HERE, "lib", "openai/clip-vit-large-patch14"))
     model = PaintByExampleImageEncoder(config)
 
     keys = list(checkpoint.keys())
@@ -740,7 +741,7 @@ def convert_paint_by_example_checkpoint(checkpoint):
 
 
 def convert_open_clip_checkpoint(checkpoint):
-    text_model = CLIPTextModel.from_pretrained("stabilityai/stable-diffusion-2", subfolder="text_encoder")
+    text_model = CLIPTextModel.from_pretrained(os.path.join(HERE, "lib", "stabilityai/stable-diffusion-2"), subfolder="text_encoder")
 
     keys = list(checkpoint.keys())
 
@@ -791,10 +792,15 @@ def convert(args):
     else:
         print("global_step key not found in model")
         global_step = None
-    checkpoint = checkpoint["state_dict"]
+
+    try:
+        checkpoint = checkpoint["state_dict"]
+    except KeyError:
+        print("state dict not found")
+        pass
 
     upcast_attention = False
-    if args.original_config_file is None:
+    if args["original_config_file"] is None:
         key_name = "model.diffusion_model.input_blocks.2.1.transformer_blocks.0.attn2.to_k.weight"
 
         if key_name in checkpoint and checkpoint[key_name].shape[-1] == 1024:
@@ -804,7 +810,7 @@ def convert(args):
                     "wget https://raw.githubusercontent.com/Stability-AI/stablediffusion/main/configs/stable-diffusion/v2-inference-v.yaml"
                     " -O v2-inference-v.yaml"
                 )
-            args.original_config_file = "./v2-inference-v.yaml"
+            args["original_config_file"] = "./v2-inference-v.yaml"
 
             if global_step == 110000:
                 # v2.1 needs to upcast attention
@@ -816,12 +822,12 @@ def convert(args):
                     "wget https://raw.githubusercontent.com/CompVis/stable-diffusion/main/configs/stable-diffusion/v1-inference.yaml"
                     " -O v1-inference.yaml"
                 )
-            args.original_config_file = "./v1-inference.yaml"
+            args["original_config_file"] = "./v1-inference.yaml"
 
-    original_config = OmegaConf.load(args.original_config_file)
+    original_config = OmegaConf.load(args["original_config_file"])
 
-    if args.num_in_channels is not None:
-        original_config["model"]["params"]["unet_config"]["params"]["in_channels"] = args.num_in_channels
+    if args["num_in_channels"] is not None:
+        original_config["model"]["params"]["unet_config"]["params"]["in_channels"] = args["num_in_channels"]
 
     if (
         "parameterization" in original_config["model"]["params"]
@@ -858,24 +864,24 @@ def convert(args):
     # make sure scheduler works correctly with DDIM
     scheduler.register_to_config(clip_sample=False)
 
-    if args.scheduler_type == "pndm":
+    if args["scheduler_type"] == "pndm":
         config = dict(scheduler.config)
         config["skip_prk_steps"] = True
         scheduler = PNDMScheduler.from_config(config)
-    elif args.scheduler_type == "lms":
+    elif args["scheduler_type"] == "lms":
         scheduler = LMSDiscreteScheduler.from_config(scheduler.config)
-    elif args.scheduler_type == "heun":
+    elif args["scheduler_type"] == "heun":
         scheduler = HeunDiscreteScheduler.from_config(scheduler.config)
-    elif args.scheduler_type == "euler":
+    elif args["scheduler_type"] == "euler":
         scheduler = EulerDiscreteScheduler.from_config(scheduler.config)
-    elif args.scheduler_type == "euler-ancestral":
+    elif args["scheduler_type"] == "euler-ancestral":
         scheduler = EulerAncestralDiscreteScheduler.from_config(scheduler.config)
-    elif args.scheduler_type == "dpm":
+    elif args["scheduler_type"] == "dpm":
         scheduler = DPMSolverMultistepScheduler.from_config(scheduler.config)
-    elif args.scheduler_type == "ddim":
+    elif args["scheduler_type"] == "ddim":
         scheduler = scheduler
     else:
-        raise ValueError(f"Scheduler of type {args.scheduler_type} doesn't exist!")
+        raise ValueError(f"Scheduler of type {args['scheduler_type']} doesn't exist!")
 
     # Convert the UNet2DConditionModel model.
     unet_config = create_unet_diffusers_config(original_config, image_size=image_size)
@@ -883,7 +889,7 @@ def convert(args):
     unet = UNet2DConditionModel(**unet_config)
 
     converted_unet_checkpoint = convert_ldm_unet_checkpoint(
-        checkpoint, unet_config, path=args.checkpoint_path, extract_ema=args.extract_ema
+        checkpoint, unet_config, path=args["checkpoint_path"], extract_ema=args["extract_ema"]
     )
 
     unet.load_state_dict(converted_unet_checkpoint)
@@ -896,13 +902,13 @@ def convert(args):
     vae.load_state_dict(converted_vae_checkpoint)
 
     # Convert the text model.
-    model_type = args.pipeline_type
+    model_type = args["pipeline_type"]
     if model_type is None:
         model_type = original_config.model.params.cond_stage_config.target.split(".")[-1]
 
     if model_type == "FrozenOpenCLIPEmbedder":
         text_model = convert_open_clip_checkpoint(checkpoint)
-        tokenizer = CLIPTokenizer.from_pretrained("stabilityai/stable-diffusion-2", subfolder="tokenizer")
+        tokenizer = CLIPTokenizer.from_pretrained(os.path.join(HERE, "lib", "stabilityai/stable-diffusion-2"), subfolder="tokenizer")
         pipe = StableDiffusionPipeline(
             vae=vae,
             text_encoder=text_model,
@@ -915,8 +921,8 @@ def convert(args):
         )
     elif model_type == "PaintByExample":
         vision_model = convert_paint_by_example_checkpoint(checkpoint)
-        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
-        feature_extractor = AutoFeatureExtractor.from_pretrained("CompVis/stable-diffusion-safety-checker")
+        tokenizer = CLIPTokenizer.from_pretrained(os.path.join(HERE, "lib", "openai/clip-vit-large-patch14"))
+        feature_extractor = AutoFeatureExtractor.from_pretrained(os.path.join(HERE, "lib", "CompVis/stable-diffusion-safety-checker"))
         pipe = PaintByExamplePipeline(
             vae=vae,
             image_encoder=vision_model,
@@ -927,9 +933,9 @@ def convert(args):
         )
     elif model_type == "FrozenCLIPEmbedder":
         text_model = convert_ldm_clip_checkpoint(checkpoint)
-        tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
-        safety_checker = StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
-        feature_extractor = AutoFeatureExtractor.from_pretrained("CompVis/stable-diffusion-safety-checker")
+        tokenizer = CLIPTokenizer.from_pretrained(os.path.join(HERE, "lib", "openai/clip-vit-large-patch14"))
+        safety_checker = StableDiffusionSafetyChecker.from_pretrained(os.path.join(HERE, "lib", "CompVis/stable-diffusion-safety-checker"))
+        feature_extractor = AutoFeatureExtractor.from_pretrained(os.path.join(HERE, "lib", "CompVis/stable-diffusion-safety-checker"))
         pipe = StableDiffusionPipeline(
             vae=vae,
             text_encoder=text_model,
@@ -942,7 +948,7 @@ def convert(args):
     else:
         text_config = create_ldm_bert_config(original_config)
         text_model = convert_ldm_bert_checkpoint(checkpoint, text_config)
-        tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
+        tokenizer = BertTokenizerFast.from_pretrained(os.path.join(HERE, "lib", "bert-base-uncased"))
         pipe = LDMTextToImagePipeline(vqvae=vae, bert=text_model, tokenizer=tokenizer, unet=unet, scheduler=scheduler)
 
-    pipe.save_pretrained(args.dump_path)
+    pipe.save_pretrained(args["dump_path"])

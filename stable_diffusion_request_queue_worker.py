@@ -37,10 +37,17 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
             logger.error(f"Improperly formatted request from client")
             return
         data["reqtype"] = reqtype
+
+        if data["reqtype"] == "convert":
+            self.sdrunner.convert(data)
+
         self.reqtype = reqtype
         if reqtype in ["txt2img", "img2img", "inpaint", "outpaint"]:
             self.sdrunner.generator_sample(data, self.handle_image)
             logger.info("Image sample complete")
+        elif reqtype == "convert":
+            logger.info("CONVERT CKPT FILE")
+            self.sdrunner.convert(data)
         else:
             logger.error(f"NO IMAGE RESPONSE for reqtype {reqtype}")
 

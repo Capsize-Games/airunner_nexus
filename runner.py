@@ -1,3 +1,4 @@
+import os
 import torch
 import base64
 import io
@@ -19,6 +20,8 @@ from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
 from PIL import Image
 from stablediffusion.classes.txt2img import Txt2Img
 from convert_original_stable_diffusion_to_diffusers import convert
+HERE = os.path.dirname(os.path.abspath(__file__))
+KRITA_STABLE_DIFFUSION_CKPT_DUMP_PATH = os.path.join(HERE, "diffusers_stable_diffusion_ckpts")
 
 
 class SDRunner:
@@ -163,6 +166,27 @@ class SDRunner:
         self.action = action
         self.options = options
 
+    def convert(self, data):
+        # get model from data
+        model = data["options"].get("txt2img_model", self.current_model)
+        if self.is_ckpt_model(model):
+            # get name of model from checkpoint
+            model_name = model.split("/")[-1].split(".")[0]
+            dump_path = os.path.join(KRITA_STABLE_DIFFUSION_CKPT_DUMP_PATH, f"{model_name}")
+            convert({
+                "checkpoint_path": model,
+                "original_config_file": "stablediffusion/configs/stable-diffusion/v1-inference.yaml",
+                "num_in_channels": None,
+                "scheduler_type": "ddim",
+                "pipeline_type": None,
+                "image_size": 512,
+                "prediction_type": "v-prediction",
+                "extract_ema": True,
+                "upcast_attn": False,
+                "dump_path": dump_path,
+            })
+            print("Converted model located at ", dump_path)
+
     def generator_sample(self, data, image_handler):
         self.image_handler = image_handler
         return self.generate(data)
@@ -239,19 +263,6 @@ class SDRunner:
                 callback=self.callback
             ).images[0]
         return image
-
-    def convert_ckpt_to_diffusers(self):
-        convert({
-            "checkpoint_path": self.model_path,
-            "original_config_file": "",
-            "num_in_channels": None,
-            "scheduler_type": "ddim",
-            "pipeline_type": None,
-            "image_size": 512,
-            "prediction_type": "v-prediction",
-            "exract_ema": True,
-            "upcast_attn": False
-        })
 
     def generate(self, data):
         self.prepare_options(data)
