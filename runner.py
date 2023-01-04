@@ -157,7 +157,6 @@ class SDRunner:
         self.strength = float(options.get(f"{action}_strength", 0.8))
         self.height = int(options.get(f"{action}_height", 512))
         self.width = int(options.get(f"{action}_width", 512))
-        self.enable_community_models = bool(options.get(f"enable_community_models", False))
         self.C = int(options.get(f"{action}_C", 4))
         self.f = int(options.get(f"{action}_f", 8))
         self.batch_size = int(data.get(f"{action}_n_samples", 1))

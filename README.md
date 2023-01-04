@@ -3,7 +3,7 @@
 Run AI allows you to run a threaded Stable Diffusion socket server.
 
 The implementation is a low level socket server which accepts 
-JSON encoded byte chunks (by default 1024 bytes) requests and
+JSON encoded byte chunks requests (1024 byte default) and
 assembles them, decodes them, processes the request and returns a
 response to any connected client.
 
@@ -35,12 +35,6 @@ See the [Stable Diffusion directory structure section](#stable-diffusion-directo
 
 ## Planned changes
 
-- Allow server to start with command line options
-  - host (string)
-  - port (int)
-  - auto_shutdown (flag)
-  - message_size (int)
-  - client_timeout_time (int)
 - Encrypted sqlite database to store generated images and request parameters (optional)
 
 ---
@@ -58,12 +52,12 @@ Client makes request to a RunAI server by
 
 1. Establishing a socket connection to the server at URL:PORT
 2. Formats JSON request as a byte string
-3. Sends 1024 byte-sized chunk to server
-4. Signals end of message (EOM) using a specific encoded message (1024 empty bits x00)
+3. Sends byte-sized chunks to server
+4. Signals end of message (EOM) using a specific encoded message
 
 The server will handle this message by first enqueuing the request, then handling requests in queue by calling stable 
 diffusion on each request, enqueuing the request and passing those back to the client in the same format
-received (1024 byte sized chunks with an EOM to the client)
+received.
 
 It is up to the client to reassemble the chunks, decode the byte strine to JSON 
 and handle the message.
@@ -133,18 +127,58 @@ You would then set BASE_DIR to `/home/USER/stable-diffusion-webui/models/Stable-
 4. conda activate runai
 5. Install requirements `pip install -r requirements.txt`
 
-### Installation information
+### Installation notes
 
 xformers increases installation time considerably; it may feel like your system 
 is hanging when you see this message `Building wheel for xformers (setup.py)
 
---
+---
+
+## Building a standalone server
+
+A standalone server can be built using the following instructions.
+
+1. Follow [Development Installation](#development-installation) instructions
+2. Install pyinstaller `pip install pyinstaller`
+3. Run `build\<OS>\run`
+4. The standalone server will be in the `dist` directory
+
+---
 
 ## Running the server
 
 `python server.py`
 
-The server will shutdown automatically if no client connects.
+The following flags and options are available
+
+- `--port` (int) - port to run server on
+- `--host` (str) - host to run server on
+- `--timeout` - whether to timeout after failing to receive a client connection, pass this flag for true, otherwise the server will not timeout.
+- `--chunk-size` (int) - size of byte chunks to transmit to and from the client
+- `--model-base-path` (str) - base directory for checkpoints
+- `--max-client-connections` (int) - maximum number of client connections to accept
+
+Example
+
+```
+python server.py --port 8080 --host https://0.0.0.0 --timeout
+```
+
+This will start a server listening on https://0.0.0.0:8080 and will timeout 
+after a set number of attempts when no failing to receive a client connection.
+
+### Request structure
+
+Requets are sent to the server as a JSON encoded byte string. The JSON object
+should look as follows
+
+```
+{
+    TODO
+}
+```
+
+### Model loading
 
 The server does not automatically load a model. It waits for the client to send 
 a request which contains a model path and name. The server will determine which
