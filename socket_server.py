@@ -288,7 +288,7 @@ class SocketServer(SocketConnection):
         self.has_connection = False
         self.message = None
         self.queue = None
-        self.do_timeout = kwargs.get("do_timeout", True)
+        self.do_timeout = kwargs.get("do_timeout", False)
         if not self.queue:
             self.queue = queue.SimpleQueue()
         super().__init__(*args, **kwargs)
