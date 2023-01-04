@@ -77,7 +77,7 @@ class SDRunner:
 
         if self.is_ckpt_model(self.model_path):
             # here we must load checkpoint using stablediffusion
-            logger.info("Loading checkpoint model from", self.model_base_path)
+            logger.info(f"Loading checkpoint model from {self.model_base_path}")
             self.txt2img = Txt2Img(
                 ckpt=self.model_path,
                 model_base_path=self.model_base_path
