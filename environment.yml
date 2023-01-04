@@ -1,0 +1,16 @@
+name: runai
+channels:
+  - pytorch
+  - nvidia
+  - defaults
+dependencies:
+  - python=3.10.8
+  - pip=22.3.1
+  - sqlalchemy=1.4.39
+  - sqlite=3.40.0
+  - numpy=1.23.4
+  - pytorch=1.13.1
+  - torchvision
+  - torchaudio=0.13.1
+  - pytorch-cuda=11.7
+prefix: /home/joe/miniconda3/envs/runai

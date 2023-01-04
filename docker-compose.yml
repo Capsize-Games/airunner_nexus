@@ -1,0 +1,11 @@
+version: '3'
+services:
+  stable-diffusion-service:
+    build: .
+    image: python:latest
+    # command: python server.py
+    restart: on-failure
+    volumes:
+      - ./:/app
+    ports:
+      - "5000:5000"

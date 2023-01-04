@@ -15,3 +15,5 @@ ACTIONS = {
     "Colorize": 7,
     "Upscale": 8,
 }
+STABLE_DIFFUSION_DIRECTORY = ""
+DEBUG = True
