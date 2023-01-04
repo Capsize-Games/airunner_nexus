@@ -13,3 +13,4 @@ authserver
 __pycache__
 *.log
 .idea
+database.db

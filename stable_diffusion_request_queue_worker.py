@@ -5,6 +5,7 @@ import numpy as np
 import settings
 import messagecodes as codes
 from PIL import Image
+from database import DBConnection
 from runner import SDRunner
 from logger import logger
 from exceptions import FailedToSendError
@@ -143,6 +144,10 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         """
         Initialize the worker
         """
+        self.db = DBConnection('database.db', b'key')
+        #self.db.insert_txt2img_sample(1, 2, b'sample', 42, 100, 100, 10, 0.5, 'model', 'scheduler')
+
+        self.model_base_path = kwargs.pop("model_base_path", None)
         self.max_client_connections = kwargs.get("max_client_connections", 1)
         self.port = kwargs.get("port", settings.DEFAULT_PORT)
         self.host = kwargs.get("host", settings.DEFAULT_HOST)
