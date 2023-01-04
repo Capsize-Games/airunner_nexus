@@ -80,4 +80,11 @@ class Connection:
         logger.info("All threads stopped")
 
     def __init__(self, *args, **kwargs):
+        self.port = kwargs.get("port", 5000)
+        self.host = kwargs.get("host", "http://localhost")
+        self.do_timeout = kwargs.get("timeout", True)
+        self.chunk_size = kwargs.get("chunk_size", 1)
+        self.max_client_connections = kwargs.get("max_client_connections", 1)
+        self.model_base_path = kwargs.get("model_base_path", ".")
+
         self.start()

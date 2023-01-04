@@ -129,7 +129,7 @@ class SocketServer(SocketConnection):
 
     @property
     def signal_byte_size(self):
-        return 1024
+        return self.chunk_size
 
     def is_expected_message(self, chunk, byte):
         return chunk == byte * self.signal_byte_size
@@ -192,7 +192,7 @@ class SocketServer(SocketConnection):
                         logger.info(f"connected with {self.soc_addr}")
                 except socket.timeout:
                     total_timeouts += 1
-                    if total_timeouts >= 3:
+                    if total_timeouts >= 3 and self.do_timeout:
                         self.quit_event.set()
                         break
                 except Exception as exc:  # pylint: disable=broad-except
@@ -207,7 +207,7 @@ class SocketServer(SocketConnection):
                         chunk = self.get_chunk()
                         # if chunk size is 0 then it tells us the
                         # client is done sending the message
-                        if chunk == b'\x00' * 1024:
+                        if chunk == b'\x00' * self.chunk_size:
                             break
 
                         # strip the chunk of any null bytes
@@ -288,6 +288,7 @@ class SocketServer(SocketConnection):
         self.has_connection = False
         self.message = None
         self.queue = None
+        self.do_timeout = kwargs.get("do_timeout", True)
         if not self.queue:
             self.queue = queue.SimpleQueue()
         super().__init__(*args, **kwargs)

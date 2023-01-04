@@ -837,7 +837,7 @@ def convert(args):
     if args["original_config_file"] is None:
         key_name = "model.diffusion_model.input_blocks.2.1.transformer_blocks.0.attn2.to_k.weight"
 
-        if key_name in checkpoint and checkpoint[key_name].shape[-1] == 1024:
+        if key_name in checkpoint and checkpoint[key_name].shape[-1] == args["chunk_size"]:
             args["original_config_file"] = INFERENCE_CONFIG_PATH_V2
 
             if global_step == 110000:
