@@ -151,7 +151,7 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         self.max_client_connections = kwargs.get("max_client_connections", 1)
         self.port = kwargs.get("port", settings.DEFAULT_PORT)
         self.host = kwargs.get("host", settings.DEFAULT_HOST)
-        self.do_timeout = kwargs.get("timeout", True)
+        self.do_timeout = kwargs.get("do_timeout", False)
         self.safety_model = kwargs.get("safety_model")
         self.model_version = kwargs.get("model_version")
         self.safety_feature_extractor = kwargs.get("safety_feature_extractor")
