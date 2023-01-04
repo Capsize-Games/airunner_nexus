@@ -1,7 +1,8 @@
-import os
+import numpy as np
 import torch
 import base64
 import io
+import logging as logger
 from diffusers import (
     StableDiffusionPipeline,
     StableDiffusionImg2ImgPipeline,
@@ -16,19 +17,16 @@ from diffusers import (
     StableDiffusionPipelineSafe
 )
 from pytorch_lightning import seed_everything
-from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 from PIL import Image
 from stablediffusion.classes.txt2img import Txt2Img
 from convert_original_stable_diffusion_to_diffusers import convert
-HERE = os.path.dirname(os.path.abspath(__file__))
-KRITA_STABLE_DIFFUSION_CKPT_DUMP_PATH = os.path.join(HERE, "diffusers_stable_diffusion_ckpts")
 
 
 class SDRunner:
     _current_model = ""
     scheduler_name = "ddpm"
     do_nsfw_filter = False
-    do_watermark = False
     initialized = False
     schedulers = {
         "ddpm": DDPMScheduler,
@@ -50,6 +48,7 @@ class SDRunner:
         if self._current_model != model:
             self._current_model = model
             if self.initialized:
+                logger.info("SDRunner initialized")
                 self.load_model()
 
     @property
@@ -73,13 +72,16 @@ class SDRunner:
                 raise ValueError("Invalid scheduler name")
 
     def load_model(self):
+        logger.info("Loading model...")
         torch.cuda.empty_cache()
 
         if self.is_ckpt_model(self.model_path):
             # here we must load checkpoint using stablediffusion
-            self.txt2img = Txt2Img(options={
-                "ckpt": self.model_path,
-            })
+            logger.info("Loading checkpoint model from", self.model_base_path)
+            self.txt2img = Txt2Img(
+                ckpt=self.model_path,
+                model_base_path=self.model_base_path
+            )
         else:
             # load StableDiffusionSafetyChecker with CLIPConfig
             self.safety_checker = StableDiffusionSafetyChecker(
@@ -111,11 +113,13 @@ class SDRunner:
             self.inpaint = StableDiffusionInpaintPipeline(**self.txt2img.components)
 
     def initialize(self):
+        logger.info("Initializing model")
         if not self.initialized:
             self.load_model()
             self.initialized = True
 
     def do_reload_model(self):
+        logger.info("Reloading model")
         if self.reload_model:
             self.load_model()
 
@@ -123,6 +127,7 @@ class SDRunner:
         return model.endswith(".ckpt")
 
     def prepare_model(self):
+        logger.info("Prepare model")
         # get model and switch to it
         self.current_model = self.options.get(f"{self.action}_model", self.current_model)
 
@@ -135,6 +140,7 @@ class SDRunner:
     def prepare_scheduler(self):
         scheduler_name = self.options.get(f"{self.action}_scheduler", "ddpm")
         if self.scheduler_name != scheduler_name:
+            logger.info("Prepare scheduler")
             self.scheduler_name = scheduler_name
             self.change_scheduler()
 
@@ -142,6 +148,7 @@ class SDRunner:
         action = data.get("action", "txt2img")
         options = data["options"]
         self.reload_model = False
+        self.model_base_path = options["model_base_path"]
         self.prompt = options.get(f"{action}_prompt", "")
         self.negative_prompt = options.get(f"{action}_negative_prompt", "")
         self.seed = int(options.get(f"{action}_seed", 42))
@@ -155,12 +162,8 @@ class SDRunner:
         self.f = int(options.get(f"{action}_f", 8))
         self.batch_size = int(data.get(f"{action}_n_samples", 1))
         do_nsfw_filter = bool(options.get(f"do_nsfw_filter", False))
-        do_watermark = bool(options.get(f"do_watermark", False))
         if do_nsfw_filter != self.do_nsfw_filter:
             self.do_nsfw_filter = do_nsfw_filter
-            self.reload_model = True
-        if do_watermark != self.do_watermark:
-            self.do_watermark = do_watermark
             self.reload_model = True
         self.do_nsfw_filter = False
         self.action = action
@@ -170,12 +173,10 @@ class SDRunner:
         # get model from data
         model = data["options"].get("txt2img_model", self.current_model)
         if self.is_ckpt_model(model):
-            # get name of model from checkpoint
-            model_name = model.split("/")[-1].split(".")[0]
-            dump_path = os.path.join(KRITA_STABLE_DIFFUSION_CKPT_DUMP_PATH, f"{model_name}")
+            dump_path = model[:-5]
             convert({
                 "checkpoint_path": model,
-                "original_config_file": "stablediffusion/configs/stable-diffusion/v1-inference.yaml",
+                "original_config_file": "./configs/stable-diffusion/v1-inference.yaml",
                 "num_in_channels": None,
                 "scheduler_type": "ddim",
                 "pipeline_type": None,
@@ -193,6 +194,7 @@ class SDRunner:
 
     def sample_ckpt_model(self):
         image = self.txt2img.sample(options={
+            "fast_sample": False,
             "prompt": self.prompt,
             "negative_prompt": self.negative_prompt,
             "steps": self.num_inference_steps,
@@ -207,7 +209,7 @@ class SDRunner:
             "model_path": self.model_path,
             "ckpt": self.model_path,
             "scheduler": self.scheduler_name,
-            "config": "stablediffusion/configs/stable-diffusion/v1-inference.yaml",
+            "config": "./configs/stable-diffusion/v1-inference.yaml",
             "fixed_code": True,
             "H": self.height,
             "W": self.width,
@@ -215,9 +217,11 @@ class SDRunner:
             "f": self.f,
             "precision": "autocast",
             "ddim_steps": self.num_inference_steps,
-            "do_nsfw_filter": self.do_nsfw_filter,
-            "do_watermark": self.do_watermark,
-        })
+            "do_nsfw_filter": self.do_nsfw_filter
+        }, image_handler=self.image_handler)
+        print("data type", type(image))
+        #image = np.random.random_sample(image.shape) * 255
+        image = image.astype(np.uint8)
         return Image.fromarray(image)
 
     def sample_diffusers_model(self, data):
@@ -269,29 +273,26 @@ class SDRunner:
         self.prepare_scheduler()
         self.prepare_model()
         self.initialize()
-        self.do_reload_model()
-        # sample the model
         with torch.no_grad() as _torch_nograd, \
             torch.cuda.amp.autocast() as _torch_autocast:
-            try:
+            # try:
                 for n in range(0, self.batch_size):
                     if self.is_ckpt_model(self.model_path):
                         image = self.sample_ckpt_model()
                     else:
                         image = self.sample_diffusers_model(data)
-
                     # use pillow to convert the image to a byte array
                     img_byte_arr = self.image_to_byte_array(image)
                     if img_byte_arr:
                         self.image_handler(img_byte_arr, data)
                     self.seed = self.seed + 1
-            except TypeError as e:
-                if self.action in ["inpaint", "outpaint"]:
-                    print(f"ERROR IN {self.action}")
-                print(e)
-            except Exception as e:
-                print("Error during generation 1")
-                print(e)
+            # except TypeError as e:
+            #     if self.action in ["inpaint", "outpaint"]:
+            #         print(f"ERROR IN {self.action}")
+            #     print(e)
+            # except Exception as e:
+            #     print("Error during generation 1")
+            #     print(e)
 
     def image_to_byte_array(self, image):
         img_byte_arr = io.BytesIO()

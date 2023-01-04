@@ -1,6 +1,10 @@
 bitsandbytes==0.35.4
 transformers==4.25.1
 opencv-python
-invisible-watermark
-taming-transformers-rom1504
-git+https://github.com/openai/CLIP.git
+ninja
+torch
+torchvision
+torchaudio
+fernet
+sqlalchemy
+numpy

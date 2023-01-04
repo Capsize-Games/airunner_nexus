@@ -1,4 +1,3 @@
-import queue
 from stable_diffusion_request_queue_worker import StableDiffusionRequestQueueWorker
 
 if __name__ == '__main__':

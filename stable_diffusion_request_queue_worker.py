@@ -63,11 +63,12 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
             self.do_send(chunk + b'\x00' * (1024 - len(chunk)))
 
     def handle_image(self, image, options):
+        opts = options["options"] if "options" in options else {"pos_x":0, "pos_y": 0}
         message = json.dumps({
             "image": base64.b64encode(image).decode(),
             "reqtype": options["reqtype"],
-            "pos_x": options["options"]["pos_x"],
-            "pos_y": options["options"]["pos_y"],
+            "pos_x": opts["pos_x"],
+            "pos_y": opts["pos_y"],
         }).encode()
         if message is not None and message != b'':
             try:
@@ -111,7 +112,6 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
 
     def do_start(self):
         # create a stable diffusion runner service
-        logger.info("START THE RESPONSE QUEUE WORKER")
         self.start_thread(
             target=self.response_queue_worker,
             name="response queue worker"
