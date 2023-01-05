@@ -1,5 +1,7 @@
 #!/usr/bin/bash
-
+DISABLE_TELEMETRY=true
+export HF_ENDPOINT=""
+export HF_HUB_OFFLINE=true
 PYTHONOPTIMIZE=0 pyinstaller --log-level=DEBUG --noconfirm ./build.spec --clean
 
 # get version from setup.py

@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 import base64
@@ -84,9 +86,11 @@ class SDRunner:
             # delete old models from memory and clear cache
             if hasattr(self, "txt2img"):
                 del self.txt2img
+            if hasattr(self, "img2img"):
                 del self.img2img
+            if hasattr(self, "inpaint"):
                 del self.inpaint
-                torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
 
             # here we must load checkpoint using stablediffusion
             logger.info(f"Loading checkpoint model from {self.model_base_path}")
@@ -112,7 +116,7 @@ class SDRunner:
                 )
             else:
                 self.txt2img = StableDiffusionPipeline.from_pretrained(
-                    model_path,
+                    self.model_path,
                     torch_dtype=torch.half,
                     scheduler=self.scheduler,
                     low_cpu_mem_usage=True,
