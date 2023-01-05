@@ -22,7 +22,6 @@ from PIL import Image
 from stablediffusion.classes.txt2img import Txt2Img
 from convert_original_stable_diffusion_to_diffusers import convert
 
-
 class SDRunner:
     _current_model = ""
     scheduler_name = "ddpm"
@@ -75,7 +74,20 @@ class SDRunner:
         logger.info("Loading model...")
         torch.cuda.empty_cache()
 
-        if self.is_ckpt_model(self.model_path):
+        # check if model_path string contains v1
+        is_v1 = False
+        model_path = self.model_path
+        if "v1" in self.model_path:
+            is_v1 = True
+
+        if self.is_ckpt_model(self.model_path) and is_v1:
+            # delete old models from memory and clear cache
+            if hasattr(self, "txt2img"):
+                del self.txt2img
+                del self.img2img
+                del self.inpaint
+                torch.cuda.empty_cache()
+
             # here we must load checkpoint using stablediffusion
             logger.info(f"Loading checkpoint model from {self.model_base_path}")
             self.txt2img = Txt2Img(
@@ -100,7 +112,7 @@ class SDRunner:
                 )
             else:
                 self.txt2img = StableDiffusionPipeline.from_pretrained(
-                    self.model_path,
+                    model_path,
                     torch_dtype=torch.half,
                     scheduler=self.scheduler,
                     low_cpu_mem_usage=True,

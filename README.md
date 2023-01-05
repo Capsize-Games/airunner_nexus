@@ -28,14 +28,14 @@ See the [Stable Diffusion directory structure section](#stable-diffusion-directo
 ## Limitations
 
 - Only handles a single client
-- Byte chunk size is hard coded
-- No-client timeout is hardcoded
-- Hardcoded port
-- Hardcoded URL
+- Data between server and client is not encrypted
+- Only uses float16 (half floats)
 
 ## Planned changes
 
 - Encrypted sqlite database to store generated images and request parameters (optional)
+- Handle multiple client connections
+- Add support for upscaling and other missing diffusers functions
 
 ---
 
