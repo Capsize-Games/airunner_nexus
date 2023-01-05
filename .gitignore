@@ -14,3 +14,5 @@ __pycache__
 *.log
 .idea
 database.db
+build
+dist
