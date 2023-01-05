@@ -65,7 +65,7 @@ class SDRunner:
             if self.scheduler_name in self.schedulers:
                 if self.scheduler_name not in self.registered_schedulers:
                     self.registered_schedulers[self.scheduler_name] = self.schedulers[self.scheduler_name].from_pretrained(
-                        self.model_path,
+                        os.path.join(self.model_base_path, self.model_path),
                         subfolder="scheduler"
                     )
                 return self.registered_schedulers[self.scheduler_name]
