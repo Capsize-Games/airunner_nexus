@@ -25,6 +25,12 @@ connection.
 
 ---
 
+## Client
+
+For an example client, take a look at [krita_stable_diffusion connect.py file](https://github.com/w4ffl35/krita_stable_diffusion/blob/master/krita_stable_diffusion/connect.py) which uses this server.
+
+---
+
 ## Features
 
 - Offline friendly - works completely locally with no internet connection
