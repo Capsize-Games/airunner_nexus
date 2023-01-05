@@ -174,23 +174,6 @@ You would then set BASE_DIR to `/home/USER/stable-diffusion-webui/models/Stable-
 
 ## Development Installation
 
-### Requirements
-
-- git
-- conda
-- a cuda capable GPU
-
-1. [Install CUDA Toolkit 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64)
-2. [Install miniconda](https://docs.conda.io/en/latest/miniconda.html)
-3. Activate environment ``
-4. conda activate runai
-5. Install requirements `pip install -r requirements.txt`
-
-### Installation notes
-
-xformers increases installation time considerably; it may feel like your system 
-is hanging when you see this message `Building wheel for xformers (setup.py)
-
 ### Build
 
 First install `pyinstaller`
@@ -216,14 +199,98 @@ This should start a server.
 
 ---
 
-## Building a standalone server
+## Docker
 
-A standalone server can be built using the following instructions.
+I recommend using this method in order to streamline and sandbox your builds.
 
-1. Follow [Development Installation](#development-installation) instructions
-2. Install pyinstaller `pip install pyinstaller`
-3. Run `build\<OS>\run`
-4. The standalone server will be in the `dist` directory
+1. Install docker
+2. `docker-compose up`
+
+----
+
+### Docker commands
+
+**Build the server**
+
+```
+docker-compose exec runai-service bin/buildlinux.sh
+```
+Runai server will be in the `dist` directory.
+
+**Run docker offline**
+
+```
+docker-compose run --network offline runai
+```
+---
+
+### More commands
+
+Build and start the services
+
+```
+docker-compose up
+```
+
+Stop and remove all services
+
+```
+docker-compose down
+```
+
+Rebuild all services
+
+```
+docker-compose build
+```
+
+List all running containers
+
+```
+docker-compose ps
+```
+
+View the output from containers
+
+```
+docker-compose logs
+```
+
+Execute a command in a running container
+
+```
+docker-compose exec <service> <command>
+```
+
+Replace <service> with the name of the service defined in the docker-compose.yml file, and <command> with the command you want to run.
+
+---
+
+## Bare metal
+
+### Prerequisites
+
+- git
+- conda
+- a cuda capable GPU
+
+1. [Install CUDA Toolkit 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64)
+2. [Install miniconda](https://docs.conda.io/en/latest/miniconda.html)
+3. Activate environment ``
+4. conda activate runai
+5. Install requirements `pip install -r requirements.txt`
+
+Build the server
+```
+./bin/buildlinux.sh
+```
+The standalone server will be in the `dist` directory
+
+Run the server
+```
+conda activate runai
+python server.py
+```
 
 ---
 

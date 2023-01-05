@@ -9,7 +9,7 @@ VERSION=$(grep -oP '(?<=version=")[0-9.]+(?=")' setup.py)
 tar -czvf runai-${VERSION}.tar.gz dist/runai
 
 # upload to github releases
-gh release create ${VERSION} runai-${VERSION}.tar.gz
+# gh release create ${VERSION} runai-${VERSION}.tar.gz
 
 # remove the tar.gz
-rm runai-${VERSION}.tar.gz
+# rm runai-${VERSION}.tar.gz

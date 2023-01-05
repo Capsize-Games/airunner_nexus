@@ -3,10 +3,11 @@ ninja==1.11.1
 fernet==1.0.1
 pillow==9.4.0
 safetensors==0.2.7
+pyinstaller
 taming-transformers-rom1504==0.0.6
 git+https://github.com/w4ffl35/stable-diffusion.git@develop
 git+https://github.com/huggingface/accelerate.git@v0.15.0
 git+https://github.com/huggingface/transformers.git@v4.25.1
-git+https://github.com/w4ffl35/diffusers.git@v0.11.1
+git+https://github.com/w4ffl35/diffusers.git
 git+https://github.com/TimDettmers/bitsandbytes.git@0.36.0
 git+https://github.com/facebookresearch/xformers.git@v0.0.13
