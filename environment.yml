@@ -13,4 +13,4 @@ dependencies:
   - torchvision
   - torchaudio=0.13.1
   - pytorch-cuda=11.7
-prefix: /home/joe/miniconda3/envs/runai
+
