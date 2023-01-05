@@ -86,25 +86,60 @@ This is the recommended and default setup for runai
 
 Default directory structure for runai Stable Diffusion
 
+#### Base models
+
+These models are required to run Stable Diffusion
+
+- **CLIP** files for CLIP
+- **CompVis** safety checker model (used for NSWF filtering)
+- **openai** clip-vit-large-patch14 model
+
 ```
-├── /home/<USER>/
-│   ├── stablediffusuion
-│      ├── checkpoints
-│         ├── v1
-│         │   ├── <file(diffusers direcotry)>
-│         │   ├── <file>.ckpt
-│         │   ├── <file>.safetensor
-│         ├── v2
-│         │   ├── <file(diffusers direcotry)>
-│         │   ├── <file>.ckpt
-│         │   ├── <file>.safetensor
-│      ├── clip-vit-large-patch14
-│      ├── CLIP
-│      ├── CompVis
-│      ├── openai
-│      ├── runwayml
-│      ├── stabilityai
+ ├── ~/stablediffusuion
+    ├── CLIP
+    ├── CompVis
+    │   ├── stable-diffusion-safety-checker
+    ├── openai
+        ├── clip-vit-large-patch14
 ```
+
+#### Diffusers models
+
+These are the base models to run a particular version of Stable Diffusion.
+
+- **runwayml**: Base models for Stable Diffusion v1
+- **stabilityai**: Base models for Stable Diffusion v2
+
+```
+├── ~/stablediffusuion
+   ├── runwayml
+      ├── stable-diffusion-inpainting
+      ├── stable-diffusion-v1-5
+   ├── stabilityai
+      ├── stable-diffusion-2-1-base
+      ├── stable-diffusion-2-inpainting
+```
+
+#### Custom models
+
+- **v1** should be a directory containing models using stable diffusion v1
+- **v2** should be a directory containing models using stable diffusion v2
+
+You may place diffusers folders, ckpt and safetensor files in these directories.
+
+```
+├── ~/stablediffusuion
+   ├── v1
+   │   ├── <folder> (diffusers directory)
+   │   ├── <file>.ckpt
+   │   ├── <file>.safetensor
+   ├── v2
+       ├── <folder> (diffusers directory)
+       ├── <file>.ckpt
+       ├── <file>.safetensor
+```
+
+### Automatic1111 existing files
 
 If you are using **Automatic1111** you can place your checkpoints in the
 webui models folder as you typically would, however the directory structure
@@ -117,20 +152,20 @@ For example, if your `webui` directory looks like this
 
 ```
 ├── /home/USER/stable-diffusion-webui/models/Stable-diffusion
-│   ├── <some_checkpoint_file>.ckpt
-│   ├── <some_other_checkpoint_file>.ckpt
-│   ├── <some_other_checkpoint_file_v2>.ckpt
+    ├── <some_checkpoint_file>.ckpt
+    ├── <some_other_checkpoint_file>.ckpt
+    ├── <some_other_checkpoint_file_v2>.ckpt
 ```
 
 You would reorganize it like this:
 
 ```
 ├── /home/USER/stable-diffusion-webui/models/Stable-diffusion
-│   ├── v1
-│      ├── <some_checkpoint_file>.ckpt
-│      ├── <some_other_checkpoint_file>.ckpt
-│   ├── v2
-│      ├── <some_other_checkpoint_file_v2>.ckpt
+    ├── v1
+       ├── <some_checkpoint_file>.ckpt
+       ├── <some_other_checkpoint_file>.ckpt
+    ├── v2
+       ├── <some_other_checkpoint_file_v2>.ckpt
 ```
 
 You would then set BASE_DIR to `/home/USER/stable-diffusion-webui/models/Stable-diffusion`

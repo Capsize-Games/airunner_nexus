@@ -106,7 +106,7 @@ class SDRunner:
 
             if self.do_nsfw_filter:
                 self.txt2img = StableDiffusionPipelineSafe.from_pretrained(
-                    self.model_path,
+                    os.path.join(self.model_base_path, self.model_path),
                     torch_dtype=torch.half,
                     scheduler=self.scheduler,
                     low_cpu_mem_usage=True,
@@ -116,7 +116,7 @@ class SDRunner:
                 )
             else:
                 self.txt2img = StableDiffusionPipeline.from_pretrained(
-                    self.model_path,
+                    os.path.join(self.model_base_path, self.model_path),
                     torch_dtype=torch.half,
                     scheduler=self.scheduler,
                     low_cpu_mem_usage=True,
