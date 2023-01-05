@@ -16,6 +16,15 @@ This could likely be done with a simple python script.
 
 See the [Stable Diffusion directory structure section](#stable-diffusion-directory-structure) for more information.
 
+---
+
+The server users diffusers. On first run it will connect to huggingface.co and
+download all the models required to run a given diffuser and store them in the
+huggingface cache directory. This can take a while depending on your internet
+connection.
+
+---
+
 ## Features
 
 - Offline friendly - works completely locally with no internet connection
@@ -83,9 +92,12 @@ Default directory structure for runai Stable Diffusion
 │         │   ├── <file(diffusers direcotry)>
 │         │   ├── <file>.ckpt
 │         │   ├── <file>.safetensor
-│         ├── CLIP
-│         ├── CompVis
-│         ├── openai
+│      ├── clip-vit-large-patch14
+│      ├── CLIP
+│      ├── CompVis
+│      ├── openai
+│      ├── runwayml
+│      ├── stabilityai
 ```
 
 If you are using **Automatic1111** you can place your checkpoints in the
@@ -120,6 +132,12 @@ You would then set BASE_DIR to `/home/USER/stable-diffusion-webui/models/Stable-
 ---
 
 ## Development Installation
+
+### Requirements
+
+- git
+- conda
+- a cuda capable GPU
 
 1. [Install CUDA Toolkit 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64)
 2. [Install miniconda](https://docs.conda.io/en/latest/miniconda.html)
