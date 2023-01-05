@@ -132,6 +132,29 @@ You would then set BASE_DIR to `/home/USER/stable-diffusion-webui/models/Stable-
 xformers increases installation time considerably; it may feel like your system 
 is hanging when you see this message `Building wheel for xformers (setup.py)
 
+### Build
+
+First install `pyinstaller`
+
+`pip install pyinstaller`
+
+Then build the executable
+
+```
+./bin/buildlinux.sh
+```
+
+Test
+
+```
+cd ./dist/runai
+./runai
+```
+
+This should start a server. 
+
+[Connect a client to see if it is working properly](https://github.com/w4ffl35/krita_stable_diffusion)
+
 ---
 
 ## Building a standalone server
