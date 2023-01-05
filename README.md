@@ -16,6 +16,8 @@ This could likely be done with a simple python script.
 
 See the [Stable Diffusion directory structure section](#stable-diffusion-directory-structure) for more information.
 
+For an example client, take a look at [krita_stable_diffusion connect.py file](https://github.com/w4ffl35/krita_stable_diffusion/blob/master/krita_stable_diffusion/connect.py) which uses this server.
+
 ## Features
 
 - Offline friendly - works completely locally with no internet connection
