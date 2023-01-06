@@ -3,7 +3,7 @@
 Run AI allows you to run a threaded Stable Diffusion socket server.
 
 The implementation is a low level socket server which accepts 
-JSON encoded byte chunks requests (1024 byte default) and
+JSON encoded byte packets requests (1024 byte default) and
 assembles them, decodes them, processes the request and returns a
 response to any connected client.
 
@@ -28,7 +28,7 @@ connection.
 ## Features
 
 - Offline friendly - works completely locally with no internet connection
-- **Sockets**: handles byte chunks of an arbitrary size
+- **Sockets**: handles byte packets of an arbitrary size
 - **Threaded**: asynchronously handle requests and responses
 - **Queue**: requests and responses are handed off to a queue
 - **Auto-shutdown**: server automatically shuts down after client disconnects
@@ -47,17 +47,17 @@ connection.
 ## Request structure
 
 Clients establish a connection with the server over a socket and send a JSON
-object encoded as a byte string in 1024 byte chunks. An EOM (end of message)
+object encoded as a byte string split into packets. An EOM (end of message)
 signal is sent to indicate the end of the message.
 
 
 ![img_1.png](img_1.png)
 
-The server assembles the chunks, decodes the JSON object and processes the
+The server assembles the packets, decodes the JSON object and processes the
 request. Once processing is complete the server will send a response
 back to the client.
 
-It is up to the client to reassemble the chunks, decode the byte string to JSON 
+It is up to the client to reassemble the packets, decode the byte string to JSON 
 and handle the message.
 
 ---
@@ -212,9 +212,9 @@ This should start a server.
 
 ## Docker
 
-I recommend using this method in order to streamline and sandbox your builds.
+Easiest method
 
-1. Install docker
+1. [Install docker](https://docs.docker.com/engine/install/)
 2. `docker-compose up`
 
 ----
@@ -237,43 +237,13 @@ docker-compose run --network offline runai
 
 ### More commands
 
-Build and start the services
-
-```
-docker-compose up
-```
-
-Stop and remove all services
-
-```
-docker-compose down
-```
-
-Rebuild all services
-
-```
-docker-compose build
-```
-
-List all running containers
-
-```
-docker-compose ps
-```
-
-View the output from containers
-
-```
-docker-compose logs
-```
-
-Execute a command in a running container
-
-```
-docker-compose exec <service> <command>
-```
-
-Replace <service> with the name of the service defined in the docker-compose.yml file, and <command> with the command you want to run.
+- Build and start the services `docker-compose up`
+- Stop and remove all services `docker-compose down`
+- Rebuild all services `docker-compose build`
+- List all running containers `docker-compose ps`
+- View the output from containers `docker-compose logs`
+- Execute a command in a running container `docker-compose exec <service> <command>`
+- Replace <service> with the name of the service defined in the docker-compose.yml file, and <command> with the command you want to run.
 
 ---
 
@@ -314,7 +284,7 @@ The following flags and options are available
 - `--port` (int) - port to run server on
 - `--host` (str) - host to run server on
 - `--timeout` - whether to timeout after failing to receive a client connection, pass this flag for true, otherwise the server will not timeout.
-- `--chunk-size` (int) - size of byte chunks to transmit to and from the client
+- `--packet-size` (int) - size of byte packets to transmit to and from the client
 - `--model-base-path` (str) - base directory for checkpoints
 - `--max-client-connections` (int) - maximum number of client connections to accept
 

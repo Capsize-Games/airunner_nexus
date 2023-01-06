@@ -54,14 +54,14 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
 
     def send_message(self, message):
         """
-        Send a message to the client in byte chunks
+        Send a message to the client in byte packets
         :param message:
         :return:
         """
-        chunk_size = self.chunk_size
-        for i in range(0, len(message), chunk_size):
-            chunk = message[i:i + chunk_size]
-            self.do_send(chunk + b'\x00' * (self.chunk_size - len(chunk)))
+        packet_size = self.packet_size
+        for i in range(0, len(message), packet_size):
+            packet = message[i:i + packet_size]
+            self.do_send(packet + b'\x00' * (self.packet_size - len(packet)))
 
     def handle_image(self, image, options):
         opts = options["options"] if "options" in options else {"pos_x":0, "pos_y": 0}
@@ -131,14 +131,14 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
             "reqtype": self.reqtype
         }
         msg = json.dumps(msg).encode()
-        msg = msg + b'\x00' * (self.chunk_size - len(msg))
+        msg = msg + b'\x00' * (self.packet_size - len(msg))
         self.do_send(msg)
         self.send_end_message()
 
     def send_end_message(self):
         # send a message of all zeroes of expected_byte_size length
         # to indicate that the image is being sent
-        self.do_send(b'\x00' * self.chunk_size)
+        self.do_send(b'\x00' * self.packet_size)
 
     def __init__(self, *args, **kwargs):
         """
@@ -157,6 +157,6 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         self.safety_feature_extractor = kwargs.get("safety_feature_extractor")
         self.safety_model_path = kwargs.get("safety_model_path"),
         self.safety_feature_extractor_path = kwargs.get("safety_feature_extractor_path")
-        self.chunk_size = kwargs.get("chunk_size", 1024)
+        self.packet_size = kwargs.get("packet_size", settings.PACKET_SIZE)
         self.do_start()
         super().__init__(*args, **kwargs)

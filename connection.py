@@ -1,4 +1,5 @@
 import threading
+import settings
 from typing import Optional
 from logger import logger
 
@@ -80,10 +81,10 @@ class Connection:
         logger.info("All threads stopped")
 
     def __init__(self, *args, **kwargs):
-        self.port = kwargs.get("port", 5000)
-        self.host = kwargs.get("host", "http://localhost")
+        self.port = kwargs.get("port", settings.DEFAULT_PORT)
+        self.host = kwargs.get("host", settings.DEFAULT_HOST)
         self.do_timeout = kwargs.get("do_timeout", False)
-        self.chunk_size = kwargs.get("chunk_size", 1)
+        self.packet_size = kwargs.get("packet_size", 1)
         self.max_client_connections = kwargs.get("max_client_connections", 1)
         self.model_base_path = kwargs.get("model_base_path", ".")
 
