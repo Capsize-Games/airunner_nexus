@@ -1,19 +1,25 @@
-version: '3'
+version: "3.7"
 services:
-  runai-service:
+  app:
+    restart: always
+    container_name: runai
+    image: runaiserver:latest
     build:
       context: .
-      dockerfile: Dockerfile
-    image: ubuntu:latest
+      dockerfile: ./Dockerfile
+    environment:
+      - DISABLE_TELEMETRY=true
+      - HF_ENDPOINT=""
+      - HF_HUB_OFFLINE=true
     ports:
       - "5000:5000"
-    restart: on-failure
     volumes:
       - ./:/app
     working_dir: /app
-    command:
-      - python3 ./server.py
-#      - bin/buildlinux.sh
+    entrypoint: /bin/bash
+    command: -c "/app/test.sh"
+    # set entrypoint
+    # entrypoint: /bin/bash -c "python3 --version" #"python --version" #"/usr/local/miniconda3/envs/runai/bin/python /app/server.py"
 
 #networks:
 #  offline:

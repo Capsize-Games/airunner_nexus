@@ -174,6 +174,26 @@ You would then set BASE_DIR to `/home/USER/stable-diffusion-webui/models/Stable-
 
 ## Development Installation
 
+### Requirements
+
+Create a lib folder in the root of the project:
+
+`mkdir -r lib/torch`
+
+Copy the following into `lib/torch/`:
+
+- `lib/torch/bin/torch_shm_manager`
+- `lib/torch/lib/libtorch_global_deps.so`
+
+Your directory structure may differ, but it will likely look something like this:
+
+```
+/home/<user>/miniconda3/envs/ksd-build/lib/python3.10/site-packages/torch/bin/torch_shm_manager
+/home/<user>/miniconda3/envs/ksd-build/lib/python3.10/site-packages/torch/lib/libtorch_global_deps.so
+```
+
+![img.png](img.png)
+
 ### Build
 
 First install `pyinstaller`

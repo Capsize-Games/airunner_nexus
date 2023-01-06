@@ -1,4 +1,3 @@
-opencv-python==4.6.0.66
 ninja==1.11.1
 fernet==1.0.1
 pillow==9.4.0
