@@ -1,9 +1,10 @@
-version: "3.7"
+version: "3.6"
 services:
   app:
     restart: always
     container_name: runai
     image: runaiserver:latest
+    user: root
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -11,16 +12,14 @@ services:
       - DISABLE_TELEMETRY=true
       - HF_ENDPOINT=""
       - HF_HUB_OFFLINE=true
+      - PATH=/usr/local/cuda-11.7/bin:$PATH
+      - NVIDIA_VISIBLE_DEVICES=all
     ports:
-      - "5000:5000"
+      - "50006:50006"
     volumes:
       - ./:/app
+      - ~/stablediffusion:/usr/share/stablediffusion
     working_dir: /app
     entrypoint: /bin/bash
-    command: -c "/app/test.sh"
-    # set entrypoint
-    # entrypoint: /bin/bash -c "python3 --version" #"python --version" #"/usr/local/miniconda3/envs/runai/bin/python /app/server.py"
-
-#networks:
-#  offline:
-#    external: true
+    command: -c "/app/run.sh"
+    runtime: nvidia
