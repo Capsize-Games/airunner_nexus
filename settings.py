@@ -2,8 +2,6 @@
 Default settings for the project.
 """
 MAX_CLIENTS = 1
-DEFAULT_PORT = 50006
-DEFAULT_HOST = "localhost"
 ACTIONS = {
     "txt2img": 0,
     "img2img": 1,
@@ -17,3 +15,6 @@ ACTIONS = {
 }
 STABLE_DIFFUSION_DIRECTORY = ""
 DEBUG = True
+PACKET_SIZE = 1024
+DEFAULT_PORT = 50006
+DEFAULT_HOST = "0.0.0.0"

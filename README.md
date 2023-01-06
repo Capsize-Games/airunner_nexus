@@ -3,7 +3,7 @@
 Run AI allows you to run a threaded Stable Diffusion socket server.
 
 The implementation is a low level socket server which accepts 
-JSON encoded byte chunks requests (1024 byte default) and
+JSON encoded byte packets requests (1024 byte default) and
 assembles them, decodes them, processes the request and returns a
 response to any connected client.
 
@@ -25,20 +25,16 @@ connection.
 
 ---
 
-## Client
-
-For an example client, take a look at [krita_stable_diffusion connect.py file](https://github.com/w4ffl35/krita_stable_diffusion/blob/master/krita_stable_diffusion/connect.py) which uses this server.
-
----
-
 ## Features
 
 - Offline friendly - works completely locally with no internet connection
-- **Sockets**: handles byte chunks of an arbitrary size
+- **Sockets**: handles byte packets of an arbitrary size
 - **Threaded**: asynchronously handle requests and responses
 - **Queue**: requests and responses are handed off to a queue
 - **Auto-shutdown**: server automatically shuts down after client disconnects
 - Does not save images or logs to disc
+
+---
 
 ## Limitations
 
@@ -46,36 +42,31 @@ For an example client, take a look at [krita_stable_diffusion connect.py file](h
 - Data between server and client is not encrypted
 - Only uses float16 (half floats)
 
-## Planned changes
-
-- Encrypted sqlite database to store generated images and request parameters (optional)
-- Handle multiple client connections
-- Add support for upscaling and other missing diffusers functions
-
----
-
-## Design choices
-
-The choice was made to create a socket server without the use of an existing
-framework because I wanted to keep the
-
 ---
 
 ## Request structure
 
-Client makes request to a RunAI server by
+Clients establish a connection with the server over a socket and send a JSON
+object encoded as a byte string split into packets. An EOM (end of message)
+signal is sent to indicate the end of the message.
 
-1. Establishing a socket connection to the server at URL:PORT
-2. Formats JSON request as a byte string
-3. Sends byte-sized chunks to server
-4. Signals end of message (EOM) using a specific encoded message
 
-The server will handle this message by first enqueuing the request, then handling requests in queue by calling stable 
-diffusion on each request, enqueuing the request and passing those back to the client in the same format
-received.
+![img_1.png](img_1.png)
 
-It is up to the client to reassemble the chunks, decode the byte strine to JSON 
+The server assembles the packets, decodes the JSON object and processes the
+request. Once processing is complete the server will send a response
+back to the client.
+
+It is up to the client to reassemble the packets, decode the byte string to JSON 
 and handle the message.
+
+---
+
+## Client
+
+For an example client, take a look at [krita_stable_diffusion connect.py file](https://github.com/w4ffl35/krita_stable_diffusion/blob/master/krita_stable_diffusion/connect.py) which uses this server.
+
+---
 
 ## Stable Diffusion directory structure
 
@@ -86,25 +77,60 @@ This is the recommended and default setup for runai
 
 Default directory structure for runai Stable Diffusion
 
+#### Base models
+
+These models are required to run Stable Diffusion
+
+- **CLIP** files for CLIP
+- **CompVis** safety checker model (used for NSWF filtering)
+- **openai** clip-vit-large-patch14 model
+
 ```
-├── /home/<USER>/
-│   ├── stablediffusuion
-│      ├── checkpoints
-│         ├── v1
-│         │   ├── <file(diffusers direcotry)>
-│         │   ├── <file>.ckpt
-│         │   ├── <file>.safetensor
-│         ├── v2
-│         │   ├── <file(diffusers direcotry)>
-│         │   ├── <file>.ckpt
-│         │   ├── <file>.safetensor
-│      ├── clip-vit-large-patch14
-│      ├── CLIP
-│      ├── CompVis
-│      ├── openai
-│      ├── runwayml
-│      ├── stabilityai
+ ├── ~/stablediffusuion
+    ├── CLIP
+    ├── CompVis
+    │   ├── stable-diffusion-safety-checker
+    ├── openai
+        ├── clip-vit-large-patch14
 ```
+
+#### Diffusers models
+
+These are the base models to run a particular version of Stable Diffusion.
+
+- **runwayml**: Base models for Stable Diffusion v1
+- **stabilityai**: Base models for Stable Diffusion v2
+
+```
+├── ~/stablediffusuion
+   ├── runwayml
+      ├── stable-diffusion-inpainting
+      ├── stable-diffusion-v1-5
+   ├── stabilityai
+      ├── stable-diffusion-2-1-base
+      ├── stable-diffusion-2-inpainting
+```
+
+#### Custom models
+
+- **v1** should be a directory containing models using stable diffusion v1
+- **v2** should be a directory containing models using stable diffusion v2
+
+You may place diffusers folders, ckpt and safetensor files in these directories.
+
+```
+├── ~/stablediffusuion
+   ├── v1
+   │   ├── <folder> (diffusers directory)
+   │   ├── <file>.ckpt
+   │   ├── <file>.safetensor
+   ├── v2
+       ├── <folder> (diffusers directory)
+       ├── <file>.ckpt
+       ├── <file>.safetensor
+```
+
+### Automatic1111 existing files
 
 If you are using **Automatic1111** you can place your checkpoints in the
 webui models folder as you typically would, however the directory structure
@@ -117,20 +143,20 @@ For example, if your `webui` directory looks like this
 
 ```
 ├── /home/USER/stable-diffusion-webui/models/Stable-diffusion
-│   ├── <some_checkpoint_file>.ckpt
-│   ├── <some_other_checkpoint_file>.ckpt
-│   ├── <some_other_checkpoint_file_v2>.ckpt
+    ├── <some_checkpoint_file>.ckpt
+    ├── <some_other_checkpoint_file>.ckpt
+    ├── <some_other_checkpoint_file_v2>.ckpt
 ```
 
 You would reorganize it like this:
 
 ```
 ├── /home/USER/stable-diffusion-webui/models/Stable-diffusion
-│   ├── v1
-│      ├── <some_checkpoint_file>.ckpt
-│      ├── <some_other_checkpoint_file>.ckpt
-│   ├── v2
-│      ├── <some_other_checkpoint_file_v2>.ckpt
+    ├── v1
+       ├── <some_checkpoint_file>.ckpt
+       ├── <some_other_checkpoint_file>.ckpt
+    ├── v2
+       ├── <some_other_checkpoint_file_v2>.ckpt
 ```
 
 You would then set BASE_DIR to `/home/USER/stable-diffusion-webui/models/Stable-diffusion`
@@ -141,20 +167,23 @@ You would then set BASE_DIR to `/home/USER/stable-diffusion-webui/models/Stable-
 
 ### Requirements
 
-- git
-- conda
-- a cuda capable GPU
+Create a lib folder in the root of the project:
 
-1. [Install CUDA Toolkit 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64)
-2. [Install miniconda](https://docs.conda.io/en/latest/miniconda.html)
-3. Activate environment ``
-4. conda activate runai
-5. Install requirements `pip install -r requirements.txt`
+`mkdir -r lib/torch`
 
-### Installation notes
+Copy the following into `lib/torch/`:
 
-xformers increases installation time considerably; it may feel like your system 
-is hanging when you see this message `Building wheel for xformers (setup.py)
+- `lib/torch/bin/torch_shm_manager`
+- `lib/torch/lib/libtorch_global_deps.so`
+
+Your directory structure may differ, but it will likely look something like this:
+
+```
+/home/<user>/miniconda3/envs/ksd-build/lib/python3.10/site-packages/torch/bin/torch_shm_manager
+/home/<user>/miniconda3/envs/ksd-build/lib/python3.10/site-packages/torch/lib/libtorch_global_deps.so
+```
+
+![img.png](img.png)
 
 ### Build
 
@@ -181,14 +210,70 @@ This should start a server.
 
 ---
 
-## Building a standalone server
+## Docker
 
-A standalone server can be built using the following instructions.
+Easiest method
+ 
+1. [Install docker](https://docs.docker.com/engine/install/)
+2. `sudo apt install nvidia-container-toolkit`
+3. Copy `daemon.json` to `/etc/docker/daemon.json` (if you already have a daemon.js file in that directory, just copy the contents)
+4. `docker-compose up`
 
-1. Follow [Development Installation](#development-installation) instructions
-2. Install pyinstaller `pip install pyinstaller`
-3. Run `build\<OS>\run`
-4. The standalone server will be in the `dist` directory
+----
+
+### Docker commands
+
+**Build the server**
+
+```
+docker-compose exec runai-service bin/buildlinux.sh
+```
+Runai server will be in the `dist` directory.
+
+**Run docker offline**
+
+```
+docker-compose run --network offline runai
+```
+---
+
+### More commands
+
+- Build and start the services `docker-compose up`
+- Stop and remove all services `docker-compose down`
+- Rebuild all services `docker-compose build`
+- List all running containers `docker-compose ps`
+- View the output from containers `docker-compose logs`
+- Execute a command in a running container `docker-compose exec <service> <command>`
+- Replace <service> with the name of the service defined in the docker-compose.yml file, and <command> with the command you want to run.
+
+---
+
+## Bare metal
+
+### Prerequisites
+
+- git
+- conda
+- a cuda capable GPU
+
+1. [Install CUDA Toolkit 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64)
+2. [Install miniconda](https://docs.conda.io/en/latest/miniconda.html)
+3. Activate environment ``
+4. conda activate runai
+5. Install requirements `pip install -r requirements.txt`
+
+Build the server
+```
+./bin/buildlinux.sh
+```
+The standalone server will be in the `dist` directory
+
+Run the server
+```
+conda activate runai
+python server.py
+```
 
 ---
 
@@ -201,7 +286,7 @@ The following flags and options are available
 - `--port` (int) - port to run server on
 - `--host` (str) - host to run server on
 - `--timeout` - whether to timeout after failing to receive a client connection, pass this flag for true, otherwise the server will not timeout.
-- `--chunk-size` (int) - size of byte chunks to transmit to and from the client
+- `--packet-size` (int) - size of byte packets to transmit to and from the client
 - `--model-base-path` (str) - base directory for checkpoints
 - `--max-client-connections` (int) - maximum number of client connections to accept
 

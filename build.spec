@@ -5,7 +5,7 @@ from PyInstaller.utils.hooks import copy_metadata
 
 block_cipher = None
 
-datas = ["./configs/stable-diffusion/*"]
+datas = []
 
 a = Analysis(
     [
