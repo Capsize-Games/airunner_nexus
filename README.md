@@ -25,12 +25,6 @@ connection.
 
 ---
 
-## Client
-
-For an example client, take a look at [krita_stable_diffusion connect.py file](https://github.com/w4ffl35/krita_stable_diffusion/blob/master/krita_stable_diffusion/connect.py) which uses this server.
-
----
-
 ## Features
 
 - Offline friendly - works completely locally with no internet connection
@@ -40,42 +34,39 @@ For an example client, take a look at [krita_stable_diffusion connect.py file](h
 - **Auto-shutdown**: server automatically shuts down after client disconnects
 - Does not save images or logs to disc
 
+---
+
 ## Limitations
 
 - Only handles a single client
 - Data between server and client is not encrypted
 - Only uses float16 (half floats)
 
-## Planned changes
-
-- Encrypted sqlite database to store generated images and request parameters (optional)
-- Handle multiple client connections
-- Add support for upscaling and other missing diffusers functions
-
----
-
-## Design choices
-
-The choice was made to create a socket server without the use of an existing
-framework because I wanted to keep the
-
 ---
 
 ## Request structure
 
-Client makes request to a RunAI server by
+Clients establish a connection with the server over a socket and send a JSON
+object encoded as a byte string in 1024 byte chunks. An EOM (end of message)
+signal is sent to indicate the end of the message.
 
-1. Establishing a socket connection to the server at URL:PORT
-2. Formats JSON request as a byte string
-3. Sends byte-sized chunks to server
-4. Signals end of message (EOM) using a specific encoded message
 
-The server will handle this message by first enqueuing the request, then handling requests in queue by calling stable 
-diffusion on each request, enqueuing the request and passing those back to the client in the same format
-received.
+![img_1.png](img_1.png)
 
-It is up to the client to reassemble the chunks, decode the byte strine to JSON 
+The server assembles the chunks, decodes the JSON object and processes the
+request. Once processing is complete the server will send a response
+back to the client.
+
+It is up to the client to reassemble the chunks, decode the byte string to JSON 
 and handle the message.
+
+---
+
+## Client
+
+For an example client, take a look at [krita_stable_diffusion connect.py file](https://github.com/w4ffl35/krita_stable_diffusion/blob/master/krita_stable_diffusion/connect.py) which uses this server.
+
+---
 
 ## Stable Diffusion directory structure
 
