@@ -129,16 +129,16 @@ class SocketServer(SocketConnection):
 
     @property
     def signal_byte_size(self):
-        return self.chunk_size
+        return self.packet_size
 
-    def is_expected_message(self, chunk, byte):
-        return chunk == byte * self.signal_byte_size
+    def is_expected_message(self, packet, byte):
+        return packet == byte * self.signal_byte_size
 
-    def is_quit_message(self, chunk):
-        return self.is_expected_message(chunk, b'x')
+    def is_quit_message(self, packet):
+        return self.is_expected_message(packet, b'x')
 
-    def is_cancel_message(self, chunk):
-        return self.is_expected_message(chunk, b'c')
+    def is_cancel_message(self, packet):
+        return self.is_expected_message(packet, b'c')
 
     def handle_quit_message(self):
         logger.info("Quit")
@@ -164,9 +164,9 @@ class SocketServer(SocketConnection):
         # self.message = None
         #self.quit_event.set()
 
-    def get_chunk(self):
-        chunk = self.soc_connection.recv(self.signal_byte_size)
-        return chunk
+    def get_packet(self):
+        packet = self.soc_connection.recv(self.signal_byte_size)
+        return packet
 
     def handle_open_socket(self):
         # pylint: disable=too-many-statements
@@ -201,37 +201,37 @@ class SocketServer(SocketConnection):
             if current_state is codes.AWAITING_MESSAGE:
                 msg = None
                 try:
-                    chunks = []
+                    packets = []
                     bytes_recd = 0
                     while True:
-                        chunk = self.get_chunk()
-                        # if chunk size is 0 then it tells us the
+                        packet = self.get_packet()
+                        # if packet size is 0 then it tells us the
                         # client is done sending the message
-                        if chunk == b'\x00' * self.chunk_size:
+                        if packet == b'\x00' * self.packet_size:
                             break
 
-                        # strip the chunk of any null bytes
-                        chunk = chunk.strip(b'\x00')
+                        # strip the packet of any null bytes
+                        packet = packet.strip(b'\x00')
 
-                        if chunk == b'':
+                        if packet == b'':
                             raise RuntimeError("socket connection broken")
 
-                        if self.is_quit_message(chunk):
+                        if self.is_quit_message(packet):
                             self.handle_quit_message()
                             break
 
-                        if self.is_cancel_message(chunk):
+                        if self.is_cancel_message(packet):
                             self.handle_cancel_message()
                             break
 
-                        # switch_model = self.is_model_switch_message(chunk)
+                        # switch_model = self.is_model_switch_message(packet)
                         # if switch_model:
                         #     self.switch_model(switch_model)
                         #     break
 
-                        if chunk != b'':
-                            chunks.append(chunk)
-                    msg = b''.join(chunks)
+                        if packet != b'':
+                            packets.append(packet)
+                    msg = b''.join(packets)
                 except socket.timeout:
                     pass
                 except AttributeError:

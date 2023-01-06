@@ -25,7 +25,9 @@ SAFETY_CHECKER_MODEL=$SAFETY_CHECKER_DIR/pytorch_model.bin
 
 # install the server with all models in the expected location
 
-# check if STABLE_DIFFUSION_DIR exists
+#-----------------------#
+# Handle stablediffusion root directory
+
 if [ ! -d "$STABLE_DIFFUSION_DIR" ]; then
     echo "Creating $STABLE_DIFFUSION_DIR"
     mkdir $STABLE_DIFFUSION_DIR
@@ -35,7 +37,9 @@ fi
 
 cd $STABLE_DIFFUSION_DIR
 
-# check if $CLIP_VIT_LARGE exists
+#-----------------------#
+# Handle openai directory
+
 if [ ! -d "OPENAI_DIR" ]; then
     echo "Creating $OPENAI_DIR"
     mkdir -p OPENAI_DIR
@@ -45,18 +49,26 @@ fi
 
 cd $OPENAI_DIR
 
+#-----------------------#
+# Handle CLIP model
+
 # check if clip-vit-large-patch14 exists
 if [ ! -d "$CLIP_VIT_LARGE" ]; then
     git clone https://huggingface.co/openai/clip-vit-large-patch14
 fi
 
-# check if $RUNWAYML_DIR exists
+#-----------------------#
+# Handle runwayml directory
+
 if [ ! -d "$RUNWAYML_DIR" ]; then
     echo "Creating $RUNWAYML_DIR"
     mkdir -p $RUNWAYML_DIR
 else
     echo "Directory $RUNWAYML_DIR already exists."
 fi
+
+#-----------------------#
+# HANDLE RunwayML stable-diffusion-v1-5 model
 
 cd $RUNWAYML_DIR
 
@@ -68,7 +80,9 @@ else
     echo "Directory $SD_MODEL_V1 already exists."
 fi
 
-# check if stable-diffusion-inpainting exists
+#-----------------------#
+# HANDLE RunwayML inpainting model
+
 if [ ! -d "$INPAINT_MODEL_V1" ]; then
     echo "Downloading stable-diffusion-inpainting"
     git clone https://huggingface.co/runway/stable-diffusion-inpainting --branch fp16
@@ -76,7 +90,9 @@ else
     echo "Directory $INPAINT_MODEL_V1 already exists."
 fi
 
-# check if $STABILITY_AI_DIR exists
+#-----------------------#
+# HANDLE StabilityAI directory
+
 if [ ! -d "$STABILITY_AI_DIR" ]; then
     echo "Creating $STABILITY_AI_DIR"
     mkdir -p $STABILITY_AI_DIR
@@ -86,7 +102,9 @@ fi
 
 cd $STABILITY_AI_DIR
 
-# check if stable-diffusion-2-1-base exists
+#-----------------------#
+# HANDLE StabilityAI stable-diffusion-2-1-base model
+
 if [ ! -d "$SD_MODEL_V2" ]; then
     echo "Downloading stable-diffusion-2-1-base"
     git clone https://huggingface.co/stabilityai/stable-diffusion-2-1-base --branch fp16
@@ -94,7 +112,9 @@ else
     echo "Directory $SD_MODEL_V2 already exists."
 fi
 
-# check if stable-diffusion-2-inpainting exists
+#-----------------------#
+# HANDLE StabilityAI inpainting model
+
 if [ ! -d "$INPAINT_MODEL_V2" ]; then
     echo "Downloading stable-diffusion-2-inpainting"
     git clone https://huggingface.co/stabilityai/stable-diffusion-2-inpainting --branch fp16
@@ -102,7 +122,12 @@ else
     echo "Directory $INPAINT_MODEL_V2 already exists."
 fi
 
-# check if $V1_DIR exists
+#-----------------------#
+# HANDLE Custom models v1 / v2 directories
+
+#-----------------------#
+# HANDLE v1 directory
+
 if [ ! -d "$V1_DIR" ]; then
     echo "Creating $V1_DIR"
     mkdir -p $V1_DIR
@@ -110,9 +135,9 @@ else
     echo "Directory $V1_DIR already exists."
 fi
 
-cd $V1_DIR
+#-----------------------#
+# HANDLE v2 directory
 
-# check if $V2_DIR exists
 if [ ! -d "$V2_DIR" ]; then
     echo "Creating $V2_DIR"
     mkdir -p $V2_DIR
@@ -120,9 +145,9 @@ else
     echo "Directory $V2_DIR already exists."
 fi
 
-cd $V2_DIR
+#-----------------------#
+# HANDLE CLIP directory
 
-# check if $CLIP_DIR exists
 if [ ! -d "$CLIP_DIR" ]; then
     echo "Creating $CLIP_DIR"
     mkdir -p $CLIP_DIR
@@ -132,7 +157,9 @@ fi
 
 cd $CLIP_DIR
 
-# check if bpe_simple_vocab_16e6.txt.gz exists
+#-----------------------#
+# HANDLE CLIP vocab model
+
 if [ ! -f "$VOCAB_MODEL" ]; then
     echo "Downloading bpe_simple_vocab_16e6.txt.gz"
     git clone https://github.com/openai/CLIP.git
@@ -140,7 +167,9 @@ else
     echo "File $VOCAB_MODEL already exists."
 fi
 
-# check if $COMPVIS_DIR exists
+#-----------------------#
+# HANDLE CompVis directory
+
 if [ ! -d "$COMPVIS_DIR" ]; then
     echo "Creating $COMPVIS_DIR"
     mkdir -p $COMPVIS_DIR
@@ -150,7 +179,9 @@ fi
 
 cd $COMPVIS_DIR
 
-# check if stable-diffusion-safety-checker exists
+#-----------------------#
+# HANDLE stable-diffusion-safety-checker directory
+
 if [ ! -d "$SAFETY_CHECKER_DIR" ]; then
   echo "Downloading stable-diffusion-safety-checker"
   git clone https://huggingface.co/CompVis/stable-diffusion-safety-checker

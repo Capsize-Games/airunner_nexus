@@ -1,11 +1,25 @@
-version: '3'
+version: "3.6"
 services:
-  stable-diffusion-service:
-    build: .
-    image: python:latest
-    # command: python server.py
-    restart: on-failure
+  app:
+    restart: always
+    container_name: runai
+    image: runaiserver:latest
+    user: root
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      - DISABLE_TELEMETRY=true
+      - HF_ENDPOINT=""
+      - HF_HUB_OFFLINE=true
+      - PATH=/usr/local/cuda-11.7/bin:$PATH
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "50006:50006"
     volumes:
       - ./:/app
-    ports:
-      - "5000:5000"
+      - ~/stablediffusion:/usr/share/stablediffusion
+    working_dir: /app
+    entrypoint: /bin/bash
+    command: -c "/app/run.sh"
+    runtime: nvidia
