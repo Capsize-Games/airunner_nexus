@@ -213,9 +213,11 @@ This should start a server.
 ## Docker
 
 Easiest method
-
+ 
 1. [Install docker](https://docs.docker.com/engine/install/)
-2. `docker-compose up`
+2. `sudo apt install nvidia-container-toolkit`
+3. Copy `daemon.json` to `/etc/docker/daemon.json` (if you already have a daemon.js file in that directory, just copy the contents)
+4. `docker-compose up`
 
 ----
 
