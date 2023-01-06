@@ -20,7 +20,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/ \
     && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-9
 
-FROM base_image as pip_install
+FROM base_image as cuda_install
+RUN wget https://developer.download.nvidia.com/compute/cuda/12.0.0/local_installers/cuda_12.0.0_525.60.13_linux.run \
+    && sh cuda_12.0.0_525.60.13_linux.run --silent --toolkit --toolkitpath=/usr/local/cuda-12.0
+
+
+FROM cuda_install as pip_install
 WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip3 install torch torchvision torchaudio \

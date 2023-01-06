@@ -123,7 +123,7 @@ class SDRunner:
                     safety_checker=None,
                     revision="fp16"
                 )
-            self.txt2img.enable_xformers_memory_efficient_attention()
+            #self.txt2img.enable_xformers_memory_efficient_attention()
             self.txt2img.to("cuda")
             self.img2img = StableDiffusionImg2ImgPipeline(**self.txt2img.components)
             self.inpaint = StableDiffusionInpaintPipeline(**self.txt2img.components)
