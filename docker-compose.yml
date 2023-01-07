@@ -21,5 +21,5 @@ services:
       - ~/stablediffusion:/usr/share/stablediffusion
     working_dir: /app
     entrypoint: /bin/bash
-    command: -c "/app/run.sh"
+    command: -c "python3 server.py"
     runtime: nvidia
