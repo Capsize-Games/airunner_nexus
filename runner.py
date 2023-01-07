@@ -1,5 +1,4 @@
 import os
-
 import numpy as np
 import torch
 import base64
@@ -9,20 +8,21 @@ from diffusers import (
     StableDiffusionPipeline,
     StableDiffusionImg2ImgPipeline,
     StableDiffusionInpaintPipeline,
+    StableDiffusionDepth2ImgPipeline,
     EulerAncestralDiscreteScheduler,
     DDPMScheduler,
     DDIMScheduler,
     PNDMScheduler,
     LMSDiscreteScheduler,
     EulerDiscreteScheduler,
-    DPMSolverMultistepScheduler,
-    StableDiffusionPipelineSafe
+    DPMSolverMultistepScheduler
 )
 from pytorch_lightning import seed_everything
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 from PIL import Image
 from stablediffusion.classes.txt2img import Txt2Img
 from convert_original_stable_diffusion_to_diffusers import convert
+
 
 class SDRunner:
     _current_model = ""
@@ -103,30 +103,18 @@ class SDRunner:
             self.safety_checker = StableDiffusionSafetyChecker(
                 StableDiffusionSafetyChecker.config_class()
             )
-
-            if self.do_nsfw_filter:
-                self.txt2img = StableDiffusionPipelineSafe.from_pretrained(
-                    os.path.join(self.model_base_path, self.model_path),
-                    torch_dtype=torch.half,
-                    scheduler=self.scheduler,
-                    low_cpu_mem_usage=True,
-                    # safety_checker=self.safety_checker,
-                    # feature_extractor=self.feature_extractor,
-                    revision="fp16"
-                )
-            else:
-                self.txt2img = StableDiffusionPipeline.from_pretrained(
-                    os.path.join(self.model_base_path, self.model_path),
-                    torch_dtype=torch.half,
-                    scheduler=self.scheduler,
-                    low_cpu_mem_usage=True,
-                    safety_checker=None,
-                    revision="fp16"
-                )
-            #self.txt2img.enable_xformers_memory_efficient_attention()
+            self.txt2img = StableDiffusionPipeline.from_pretrained(
+                os.path.join(self.model_base_path, self.model_path),
+                torch_dtype=torch.half,
+                scheduler=self.scheduler,
+                low_cpu_mem_usage=True,
+                safety_checker= StableDiffusionSafetyChecker if self.do_nsfw_filter else None,
+                revision="fp16"
+            )
             self.txt2img.to("cuda")
             self.img2img = StableDiffusionImg2ImgPipeline(**self.txt2img.components)
             self.inpaint = StableDiffusionInpaintPipeline(**self.txt2img.components)
+            self.depth2img = StableDiffusionDepth2ImgPipeline(**self.txt2img.components)
 
     def initialize(self):
         logger.info("Initializing model")
@@ -279,6 +267,25 @@ class SDRunner:
                 mask_image=mask,
                 guidance_scale=self.guidance_scale,
                 num_inference_steps=self.num_inference_steps,
+                callback=self.callback
+            ).images[0]
+        elif self.action in ["depth2img"]:
+            bytes = base64.b64decode(data["options"]["pixels"])
+            mask_bytes = base64.b64decode(data["options"]["mask"])
+
+            image = Image.open(io.BytesIO(bytes))
+            mask = Image.open(io.BytesIO(mask_bytes))
+
+            # convert mask to 1 channel
+            # print mask shape
+            image = self.inpaint(
+                prompt=self.prompt,
+                negative_prompt=self.negative_prompt,
+                image=image,
+                strngth=self.strength,
+                num_inference_steps=self.num_inference_steps,
+                guidance_scale=self.guidance_scale,
+                mask_image=mask,
                 callback=self.callback
             ).images[0]
         return image

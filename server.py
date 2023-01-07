@@ -1,7 +1,7 @@
 import argparse
 import settings
-
 from stable_diffusion_request_queue_worker import StableDiffusionRequestQueueWorker
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -13,6 +13,7 @@ def parse_args():
     parser.add_argument('--model-base-path', type=str, default='.')
 
     return parser.parse_args()
+
 
 if __name__ == '__main__':
     # get command line arguments
