@@ -194,7 +194,6 @@ class SDRunner:
         # check if model is in v1 or v2
         is_v1 = "v1" in model
         extract_ema = True
-        logger.info(options)
         datatype = options.get("convert_datatype", "float16")
         convert_model_output_type = options.get("convert_model_output_type", "diffusers")
         config_file = os.path.join(".", "configs", "stable-diffusion/v1-inference.yaml") if is_v1 else \
@@ -212,16 +211,19 @@ class SDRunner:
             "upcast_attn": False,
             "image_size": 512,
             "dump_path": dump_path,
+            "model_base_path": options["model_base_path"]
         }
 
         """
         TODO: allow more converion types Currently we can only convert from ckpt to diffuers
         """
+        converted = False
         if self.is_ckpt_model(model):
             logger.info(f"Converting ckpt model {model} to {convert_model_output_type}")
             if convert_model_output_type == "diffusers":
                 logger.info("Converting ckpt to diffusers")
                 ckpt_to_diffusers(convert_options)
+                converted = True
             # elif convert_model_output_type == "safetensors":
             #     ckpt_to_safetensors(convert_options)
         # else:
@@ -230,7 +232,10 @@ class SDRunner:
         #     elif convert_model_output_type == "safetensors":
         #         ckpt_to_safetensors(convert_options)
 
-        logger.info(f"Converted model located at {dump_path}")
+        if converted:
+            logger.info(f"Converted model located at {dump_path}")
+        else:
+            logger.warning("Unable to convert model")
 
     def generator_sample(self, data, image_handler):
         self.image_handler = image_handler
