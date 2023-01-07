@@ -11,6 +11,8 @@ INPAINT_MODEL_V1=$RUNWAYML_DIR/stable-diffusion-inpainting
 
 SD_MODEL_V2=$STABILITY_AI_DIR/stable-diffusion-2-1-base
 INPAINT_MODEL_V2=$STABILITY_AI_DIR/stable-diffusion-2-inpainting
+DEPTH_MODEL_V2=$STABILITY_AI_DIR/stable-diffusion-2-depth
+UPSCALER_MODEL_V2=$STABILITY_AI_DIR/stable-diffusion-x4-upscaler
 
 V1_DIR=$STABLE_DIFFUSION_DIR/v1
 V2_DIR=$STABLE_DIFFUSION_DIR/v2
@@ -120,6 +122,26 @@ if [ ! -d "$INPAINT_MODEL_V2" ]; then
     git clone https://huggingface.co/stabilityai/stable-diffusion-2-inpainting --branch fp16
 else
     echo "Directory $INPAINT_MODEL_V2 already exists."
+fi
+
+#-----------------------#
+# HANDLE StabilityAI depth model
+
+if [ ! -d "$DEPTH_MODEL_V2" ]; then
+    echo "Downloading stable-diffusion-2-depth"
+    git clone https://huggingface.co/stabilityai/stable-diffusion-2-depth --branch fp16
+else
+    echo "Directory $DEPTH_MODEL_V2 already exists."
+fi
+
+#-----------------------#
+# HANDLE StabilityAI upscaler model
+
+if [ ! -d "$UPSCALER_MODEL_V2" ]; then
+    echo "Downloading stable-diffusion-x4-upscaler"
+    git clone https://huggingface.co/stabilityai/stable-diffusion-x4-upscaler --branch fp16
+else
+    echo "Directory $UPSCALER_MODEL_V2 already exists."
 fi
 
 #-----------------------#
