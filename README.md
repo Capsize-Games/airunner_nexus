@@ -44,7 +44,7 @@ Easiest method
 **Build the server**
 
 ```
-docker-compose exec runai-service bin/buildlinux.sh
+docker exec -it runai /bin/bash /app/bin/buildlinux.sh
 ```
 Runai server will be in the `dist` directory.
 

@@ -85,13 +85,13 @@ class Update:
 
     def download_extract_krita_stable_diffusion_plugin(self, version_data):
         latest_ksd_version = version_data["versions"]["latest_ksd_version"]
-        ksd_file_name = f"{latest_ksd_version}_ksd.tar.gz"
+        ksd_file_name = f"krita_stable_diffusion-{latest_ksd_version}.tar.gz"
         ksd_download_url = f"https://github.com/w4ffl35/krita_stable_diffusion/releases/tag/{latest_ksd_version}/{ksd_file_name}"
         self.download_and_extract(ksd_download_url, ksd_file_name)
 
     def download_extract_runai_server(self, version_data):
         latest_runai_version = version_data["versions"]["latest_runai_version"]
-        runai_file_name = f"{latest_runai_version}_runai.tar.gz"
+        runai_file_name = f"runai-{latest_runai_version}.tar.gz"
         runai_download_url = f"https://sddist.s3.amazonaws.com/{runai_file_name}"
         self.download_and_extract(runai_download_url, runai_file_name)
 
