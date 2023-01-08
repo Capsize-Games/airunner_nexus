@@ -46,32 +46,23 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
         elif reqtype == "convert":
             logger.info("Convert CKPT file")
             self.sdrunner.convert(data)
+        elif reqtype == "update":
+            logger.info("update to latest version")
+            self.update_versions()
         else:
             logger.error(f"NO IMAGE RESPONSE for reqtype {reqtype}")
 
-    def send_message(self, message):
-        """
-        Send a message to the client in byte packets
-        :param message:
-        :return:
-        """
-        packet_size = self.packet_size
-        for i in range(0, len(message), packet_size):
-            packet = message[i:i + packet_size]
-            self.do_send(packet + b'\x00' * (self.packet_size - len(packet)))
-
     def handle_image(self, image, options):
         opts = options["options"] if "options" in options else {"pos_x":0, "pos_y": 0}
-        message = json.dumps({
+        message = {
             "image": base64.b64encode(image).decode(),
             "reqtype": options["reqtype"],
             "pos_x": opts["pos_x"],
             "pos_y": opts["pos_y"],
-        }).encode()
+        }
         if message is not None and message != b'':
             try:
-                self.send_message(message)
-                self.send_end_message()
+                self.message_client(message)
                 if not self.soc_connection:
                     raise FailedToSendError()
             except FailedToSendError as ect:
@@ -127,15 +118,7 @@ class StableDiffusionRequestQueueWorker(SimpleEnqueueSocketServer):
             "total":total_steps,
             "reqtype": self.reqtype
         }
-        msg = json.dumps(msg).encode()
-        msg = msg + b'\x00' * (self.packet_size - len(msg))
-        self.do_send(msg)
-        self.send_end_message()
-
-    def send_end_message(self):
-        # send a message of all zeroes of expected_byte_size length
-        # to indicate that the image is being sent
-        self.do_send(b'\x00' * self.packet_size)
+        self.message_client(msg)
 
     def __init__(self, *args, **kwargs):
         """

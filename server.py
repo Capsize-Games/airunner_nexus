@@ -14,6 +14,7 @@ def parse_args():
 
     return parser.parse_args()
 
+
 if __name__ == '__main__':
     # get command line arguments
     args = parse_args()

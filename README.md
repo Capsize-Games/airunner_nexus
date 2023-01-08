@@ -299,3 +299,11 @@ a request which contains a model path and name. The server will determine which
 version of stable diffusion is in use and  which model has been selected 
 to generate images. It will also determine the best model to load based on
 the list of available types in the directory provided.
+
+---
+
+### Development notes
+
+
+- `StableDiffusionRequestQueueWorker.callback` Handle routes and dispatch to functions
+- `socket_server.message_client` Send a message to the client
