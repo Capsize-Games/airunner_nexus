@@ -10,11 +10,10 @@ from settings import (
     CACHE_TIME,
     KSD_VERSION_FILE,
     RUNAI_VERSION_FILE,
-    KSD_DOWNLOAD_FILE,
-    RUNAI_DOWNLOAD_FILE,
     UPGRADE_PATH,
     VERSION,
 )
+HERE = os.path.dirname(os.path.realpath(__file__))
 
 
 class Update:
@@ -26,7 +25,7 @@ class Update:
         self.backup_files()
 
         # replace old files with new downloaded files
-        # self.update_all_files()
+        self.update_all_files()
 
     def cached_or_request(self, file, url):
         contents = self.read_cache_file(file)
@@ -77,8 +76,9 @@ class Update:
         return {}
 
     def download_and_extract(self, url, file_name):
-        HERE = os.path.dirname(os.path.realpath(__file__))
-        path = os.path.join(HERE, file_name)
+        if not os.path.exists(os.path.join(HERE, "tmp")):
+            os.makedirs(os.path.join(HERE, "tmp"))
+        path = os.path.join(HERE, "tmp", file_name)
         logger.info(f"Downloading {url} to {path}")
         urllib.request.urlretrieve(url, path)
         with tarfile.open(path) as tar:
@@ -108,7 +108,6 @@ class Update:
         """
         logger.info("Backing up files")
         # make a backup of this directory
-        HERE = os.path.dirname(os.path.realpath(__file__))
         backup_dir = os.path.join(HERE, "tmp")
         if not os.path.exists(backup_dir):
             os.makedirs(backup_dir)
@@ -128,15 +127,15 @@ class Update:
                     )
                 ),
                 filter=lambda x: None if x.name in [
+                    "lib",
+                    "__pycache__",
+                    "*.log"
+                    ".idea",
+                    "database.db",
                     "build",
                     "dist",
-                    "lib",
-                    "upgrade",
-                    "backup",
-                    ".git",
                     "tmp",
-                    "database.db",
-                    "krita-stable-diffusion.log"
+                    ".git",
                 ] else x
             )
 
@@ -147,8 +146,9 @@ class Update:
         """
         logger.info("Updating all files")
         # copy files from the update directory to the current directory
-        for file in os.listdir(os.path.join(UPGRADE_PATH, "runai")):
+        tmp_path = os.path.join(HERE, "tmp", "runai")
+        for file in os.listdir(tmp_path):
             shutil.copy(
-                os.path.join(UPGRADE_PATH, "runai", file),
-                os.path.join(os.path.dirname(os.path.realpath(__file__)), file)
+                os.path.join(tmp_path, file),
+                os.path.join(HERE, file)
             )
