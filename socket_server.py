@@ -9,6 +9,7 @@ import messagecodes as codes
 from logger import logger
 from exceptions import FailedToSendError, NoConnectionToClientError
 from socket_connection import SocketConnection
+from update import Update
 
 
 class SocketServer(SocketConnection):
@@ -105,6 +106,32 @@ class SocketServer(SocketConnection):
                 raise FailedToSendError()
         return bytes_sent
 
+    def message_client(self, message):
+        """
+        Convience method to send a message to the client
+        :param message:
+        :return:
+        """
+        message = json.dumps(message).encode()
+        self.send_message(message)
+        self.send_end_message()
+
+    def send_message(self, message):
+        """
+        Send a message to the client in byte packets
+        :param message:
+        :return:
+        """
+        packet_size = self.packet_size
+        for i in range(0, len(message), packet_size):
+            packet = message[i:i + packet_size]
+            self.do_send(packet + b'\x00' * (packet_size - len(packet)))
+
+    def send_end_message(self):
+        # send a message of all zeroes of expected_byte_size length
+        # to indicate that the image is being sent
+        self.do_send(b'\x00' * self.packet_size)
+
     def send_msg(self, msg=None):
         """
         Send a message to the client
@@ -168,6 +195,22 @@ class SocketServer(SocketConnection):
         packet = self.soc_connection.recv(self.signal_byte_size)
         return packet
 
+    def check_for_latest_version(self):
+        """
+        Check github for latest version of this plugin
+        :return:
+        """
+        version_data = Update().get_current_versions()
+        self.message_client(version_data)
+
+    def update_versions(self):
+        """
+        Update client and server
+        :return:
+        """
+        Update().do_update()
+        self.message_client({"upgrade_complete": True})
+
     def handle_open_socket(self):
         # pylint: disable=too-many-statements
         # pylint: disable=too-many-branches
@@ -190,6 +233,7 @@ class SocketServer(SocketConnection):
                         self.has_connection = True
                         current_state = codes.AWAITING_MESSAGE
                         logger.info(f"connected with {self.soc_addr}")
+                        self.check_for_latest_version()
                 except socket.timeout:
                     total_timeouts += 1
                     if total_timeouts >= 3 and self.do_timeout:

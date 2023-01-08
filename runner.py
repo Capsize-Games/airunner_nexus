@@ -1,5 +1,4 @@
 import os
-
 import numpy as np
 import torch
 import base64
@@ -22,7 +21,8 @@ from pytorch_lightning import seed_everything
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 from PIL import Image
 from stablediffusion.classes.txt2img import Txt2Img
-from convert_original_stable_diffusion_to_diffusers import convert
+from convert_original_stable_diffusion_to_diffusers import convert as ckpt_to_diffusers
+
 
 class SDRunner:
     _current_model = ""
@@ -65,7 +65,7 @@ class SDRunner:
             if self.scheduler_name in self.schedulers:
                 if self.scheduler_name not in self.registered_schedulers:
                     self.registered_schedulers[self.scheduler_name] = self.schedulers[self.scheduler_name].from_pretrained(
-                        os.path.join(self.model_base_path, self.model_path),
+                        self.model_path,
                         subfolder="scheduler"
                     )
                 return self.registered_schedulers[self.scheduler_name]
@@ -106,7 +106,7 @@ class SDRunner:
 
             if self.do_nsfw_filter:
                 self.txt2img = StableDiffusionPipelineSafe.from_pretrained(
-                    os.path.join(self.model_base_path, self.model_path),
+                    self.model_path,
                     torch_dtype=torch.half,
                     scheduler=self.scheduler,
                     low_cpu_mem_usage=True,
@@ -116,7 +116,7 @@ class SDRunner:
                 )
             else:
                 self.txt2img = StableDiffusionPipeline.from_pretrained(
-                    os.path.join(self.model_base_path, self.model_path),
+                    self.model_path,
                     torch_dtype=torch.half,
                     scheduler=self.scheduler,
                     low_cpu_mem_usage=True,
@@ -186,22 +186,56 @@ class SDRunner:
 
     def convert(self, data):
         # get model from data
-        model = data["options"].get("txt2img_model", self.current_model)
+        print(data)
+        options = data["options"]
+        model = options.get("convert_model", None)
+        if not model:
+            return
+        # check if model is in v1 or v2
+        is_v1 = "v1" in model
+        extract_ema = True
+        datatype = options.get("convert_datatype", "float16")
+        convert_model_output_type = options.get("convert_model_output_type", "diffusers")
+        config_file = os.path.join(".", "configs", "stable-diffusion/v1-inference.yaml") if is_v1 else \
+            os.path.join(".", "configs", "stable-diffusion/v2-inference.yaml")
+
+        dump_path = model[:-5]
+        convert_options = {
+            "checkpoint_path": model,
+            "original_config_file": config_file,
+            "extract_ema": extract_ema,
+            "scheduler_type": "ddim",
+            "prediction_type": "v-prediction",
+            "num_in_channels": None,
+            "pipeline_type": None,
+            "upcast_attn": False,
+            "image_size": 512,
+            "dump_path": dump_path,
+            "model_base_path": options["model_base_path"]
+        }
+
+        """
+        TODO: allow more converion types Currently we can only convert from ckpt to diffuers
+        """
+        converted = False
         if self.is_ckpt_model(model):
-            dump_path = model[:-5]
-            convert({
-                "checkpoint_path": model,
-                "original_config_file": "./configs/stable-diffusion/v1-inference.yaml",
-                "num_in_channels": None,
-                "scheduler_type": "ddim",
-                "pipeline_type": None,
-                "image_size": 512,
-                "prediction_type": "v-prediction",
-                "extract_ema": True,
-                "upcast_attn": False,
-                "dump_path": dump_path,
-            })
-            print("Converted model located at ", dump_path)
+            logger.info(f"Converting ckpt model {model} to {convert_model_output_type}")
+            if convert_model_output_type == "diffusers":
+                logger.info("Converting ckpt to diffusers")
+                ckpt_to_diffusers(convert_options)
+                converted = True
+            # elif convert_model_output_type == "safetensors":
+            #     ckpt_to_safetensors(convert_options)
+        # else:
+        #     if convert_model_output_type == "ckpt":
+        #         diffusers_to_ckpt(convert_options)
+        #     elif convert_model_output_type == "safetensors":
+        #         ckpt_to_safetensors(convert_options)
+
+        if converted:
+            logger.info(f"Converted model located at {dump_path}")
+        else:
+            logger.warning("Unable to convert model")
 
     def generator_sample(self, data, image_handler):
         self.image_handler = image_handler

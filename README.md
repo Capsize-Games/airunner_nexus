@@ -1,33 +1,13 @@
 # RunAI
 
-Run AI allows you to run a threaded Stable Diffusion socket server.
-
-The implementation is a low level socket server which accepts 
-JSON encoded byte packets requests (1024 byte default) and
-assembles them, decodes them, processes the request and returns a
-response to any connected client.
-
-**Note:** This server is not meant to be run with Automatic1111. It is a standalone 
-server which requires a socket client that can communicate with the server.
-
-You can use the **Automatic1111 webui** as a client, but it would require
-middleware to be written to handle the socket connection and communication.
-This could likely be done with a simple python script.
-
-See the [Stable Diffusion directory structure section](#stable-diffusion-directory-structure) for more information.
-
----
-
-The server users diffusers. On first run it will connect to huggingface.co and
-download all the models required to run a given diffuser and store them in the
-huggingface cache directory. This can take a while depending on your internet
-connection.
+Run AI allows you to run a threaded Stable Diffusion low level python socket 
+server.
 
 ---
 
 ## Features
 
-- Offline friendly - works completely locally with no internet connection
+- Offline friendly - works completely locally with no internet connection (must first download models)
 - **Sockets**: handles byte packets of an arbitrary size
 - **Threaded**: asynchronously handle requests and responses
 - **Queue**: requests and responses are handed off to a queue
@@ -38,9 +18,96 @@ connection.
 
 ## Limitations
 
-- Only handles a single client
 - Data between server and client is not encrypted
 - Only uses float16 (half floats)
+
+---
+
+## Installation
+
+First run `sh bin/install.sh` to install the required models. These will be
+placed in `~/stablediffusion`. See [Stable Diffusion directory structure](#stable-diffusion-directory-structure) for more information.
+
+## Docker
+
+Easiest method
+ 
+1. [Install docker](https://docs.docker.com/engine/install/)
+2. `sudo apt install nvidia-container-toolkit`
+3. Copy `daemon.json` to `/etc/docker/daemon.json` (if you already have a daemon.js file in that directory, just copy the contents)
+4. `docker-compose up`
+
+----
+
+### Docker commands
+
+**Build the server**
+
+```
+docker exec -it runai /bin/bash /app/bin/buildlinux.sh
+```
+Runai server will be in the `dist` directory.
+
+**Run docker offline**
+
+```
+docker-compose run --network offline runai
+```
+---
+
+### More commands
+
+- Build and start the services `docker-compose up`
+- Stop and remove all services `docker-compose down`
+- Rebuild all services `docker-compose build`
+- List all running containers `docker-compose ps`
+- View the output from containers `docker-compose logs`
+- Execute a command in a running container `docker-compose exec <service> <command>`
+- Replace <service> with the name of the service defined in the docker-compose.yml file, and <command> with the command you want to run.
+
+---
+
+## Bare metal
+
+1. [Install CUDA Toolkit 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64)
+2. [Install miniconda](https://docs.conda.io/en/latest/miniconda.html)
+3. Activate environment ``
+4. conda activate runai
+5. Install requirements `pip install -r requirements.txt`
+
+Create a lib folder in the root of the project:
+
+`mkdir -r lib/torch`
+
+Copy the following into `lib/torch/`:
+
+- `lib/torch/bin/torch_shm_manager`
+- `lib/torch/lib/libtorch_global_deps.so`
+
+Your directory structure may differ, but it will likely look something like this:
+
+```
+/home/<user>/miniconda3/envs/ksd-build/lib/python3.10/site-packages/torch/bin/torch_shm_manager
+/home/<user>/miniconda3/envs/ksd-build/lib/python3.10/site-packages/torch/lib/libtorch_global_deps.so
+```
+
+![img.png](img.png)
+
+- git
+- conda
+- a cuda capable GPU
+
+Build the server
+```
+./bin/buildlinux.sh
+```
+The standalone server will be in the `dist` directory
+
+Run the server
+```
+conda activate runai
+python server.py
+```
 
 ---
 
@@ -64,7 +131,7 @@ and handle the message.
 
 ## Client
 
-For an example client, take a look at [krita_stable_diffusion connect.py file](https://github.com/w4ffl35/krita_stable_diffusion/blob/master/krita_stable_diffusion/connect.py) which uses this server.
+For an example client, take a look at the [connect.py file](https://github.com/w4ffl35/krita_stable_diffusion/blob/master/krita_stable_diffusion/connect.py) in the Krita Stable Diffusion [Plugin](https://github.com/w4ffl35/krita_stable_diffusion) which uses this server.
 
 ---
 
@@ -163,28 +230,6 @@ You would then set BASE_DIR to `/home/USER/stable-diffusion-webui/models/Stable-
 
 ---
 
-## Development Installation
-
-### Requirements
-
-Create a lib folder in the root of the project:
-
-`mkdir -r lib/torch`
-
-Copy the following into `lib/torch/`:
-
-- `lib/torch/bin/torch_shm_manager`
-- `lib/torch/lib/libtorch_global_deps.so`
-
-Your directory structure may differ, but it will likely look something like this:
-
-```
-/home/<user>/miniconda3/envs/ksd-build/lib/python3.10/site-packages/torch/bin/torch_shm_manager
-/home/<user>/miniconda3/envs/ksd-build/lib/python3.10/site-packages/torch/lib/libtorch_global_deps.so
-```
-
-![img.png](img.png)
-
 ### Build
 
 First install `pyinstaller`
@@ -210,73 +255,6 @@ This should start a server.
 
 ---
 
-## Docker
-
-Easiest method
- 
-1. [Install docker](https://docs.docker.com/engine/install/)
-2. `sudo apt install nvidia-container-toolkit`
-3. Copy `daemon.json` to `/etc/docker/daemon.json` (if you already have a daemon.js file in that directory, just copy the contents)
-4. `docker-compose up`
-
-----
-
-### Docker commands
-
-**Build the server**
-
-```
-docker-compose exec runai-service bin/buildlinux.sh
-```
-Runai server will be in the `dist` directory.
-
-**Run docker offline**
-
-```
-docker-compose run --network offline runai
-```
----
-
-### More commands
-
-- Build and start the services `docker-compose up`
-- Stop and remove all services `docker-compose down`
-- Rebuild all services `docker-compose build`
-- List all running containers `docker-compose ps`
-- View the output from containers `docker-compose logs`
-- Execute a command in a running container `docker-compose exec <service> <command>`
-- Replace <service> with the name of the service defined in the docker-compose.yml file, and <command> with the command you want to run.
-
----
-
-## Bare metal
-
-### Prerequisites
-
-- git
-- conda
-- a cuda capable GPU
-
-1. [Install CUDA Toolkit 11.7](https://developer.nvidia.com/cuda-11-7-0-download-archive?target_os=Linux&target_arch=x86_64)
-2. [Install miniconda](https://docs.conda.io/en/latest/miniconda.html)
-3. Activate environment ``
-4. conda activate runai
-5. Install requirements `pip install -r requirements.txt`
-
-Build the server
-```
-./bin/buildlinux.sh
-```
-The standalone server will be in the `dist` directory
-
-Run the server
-```
-conda activate runai
-python server.py
-```
-
----
-
 ## Running the server
 
 `python server.py`
@@ -299,6 +277,8 @@ python server.py --port 8080 --host https://0.0.0.0 --timeout
 This will start a server listening on https://0.0.0.0:8080 and will timeout 
 after a set number of attempts when no failing to receive a client connection.
 
+---
+
 ### Request structure
 
 Requets are sent to the server as a JSON encoded byte string. The JSON object
@@ -310,6 +290,8 @@ should look as follows
 }
 ```
 
+---
+
 ### Model loading
 
 The server does not automatically load a model. It waits for the client to send 
@@ -317,3 +299,11 @@ a request which contains a model path and name. The server will determine which
 version of stable diffusion is in use and  which model has been selected 
 to generate images. It will also determine the best model to load based on
 the list of available types in the directory provided.
+
+---
+
+### Development notes
+
+
+- `StableDiffusionRequestQueueWorker.callback` Handle routes and dispatch to functions
+- `socket_server.message_client` Send a message to the client

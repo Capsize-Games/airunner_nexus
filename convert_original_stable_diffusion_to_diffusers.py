@@ -16,35 +16,25 @@
 import os
 import re
 import torch
-LIB = os.path.join(
-    ".",
-    "stablediffusion",
-    "ldm",
-    "modules",
-    "encoders",
-    "lib"
-)
+import logging as logger
+
 CONFIG = os.path.join(
     ".",
     "stablediffusion",
     "configs"
 )
 CLIP_VIT_LARGE_PATH = os.path.join(
-    LIB,
     "openai",
     "clip-vit-large-patch14"
 )
 SAFETY_CHECK_PATH = os.path.join(
-    LIB,
-    "compvis",
+    "CompVis",
     "stable-diffusion-safety-checker"
 )
 BERT_BASE_UNCASED_PATH = os.path.join(
-    LIB,
     "bert-base-uncased"
 )
 STABLE_DIFFUSION_PATH_V2 = os.path.join(
-    LIB,
     "stabilityai",
     "stable-diffusion-2"
 )
@@ -346,9 +336,9 @@ def convert_ldm_unet_checkpoint(checkpoint, config, path=None, extract_ema=False
     unet_key = "model.diffusion_model."
     # at least a 100 parameters have to start with `model_ema` in order for the checkpoint to be EMA
     if sum(k.startswith("model_ema") for k in keys) > 100:
-        print(f"Checkpoint {path} has both EMA and non-EMA weights.")
+        logger.info(f"Checkpoint {path} has both EMA and non-EMA weights.")
         if extract_ema:
-            print(
+            logger.info(
                 "In this conversion only the EMA weights are extracted. If you want to instead extract the non-EMA"
                 " weights (useful to continue fine-tuning), please make sure to remove the `--extract_ema` flag."
             )
@@ -357,7 +347,7 @@ def convert_ldm_unet_checkpoint(checkpoint, config, path=None, extract_ema=False
                     flat_ema_key = "model_ema." + "".join(key.split(".")[1:])
                     unet_state_dict[key.replace(unet_key, "")] = checkpoint.pop(flat_ema_key)
         else:
-            print(
+            logger.info(
                 "In this conversion only the non-EMA weights are extracted. If you want to instead extract the EMA"
                 " weights (usually better for inference), please make sure to add the `--extract_ema` flag."
             )
@@ -667,8 +657,8 @@ def convert_ldm_bert_checkpoint(checkpoint, config):
     return hf_model
 
 
-def convert_ldm_clip_checkpoint(checkpoint):
-    text_model = CLIPTextModel.from_pretrained(CLIP_VIT_LARGE_PATH)
+def convert_ldm_clip_checkpoint(model_base_path, checkpoint):
+    text_model = CLIPTextModel.from_pretrained(os.path.join(model_base_path, CLIP_VIT_LARGE_PATH))
 
     keys = list(checkpoint.keys())
 
@@ -707,8 +697,8 @@ protected = {re.escape(x[0]): x[1] for x in textenc_transformer_conversion_lst}
 textenc_pattern = re.compile("|".join(protected.keys()))
 
 
-def convert_paint_by_example_checkpoint(checkpoint):
-    config = CLIPVisionConfig.from_pretrained(CLIP_VIT_LARGE_PATH)
+def convert_paint_by_example_checkpoint(model_base_path, checkpoint):
+    config = CLIPVisionConfig.from_pretrained(os.path.join(model_base_path, CLIP_VIT_LARGE_PATH))
     model = PaintByExampleImageEncoder(config)
 
     keys = list(checkpoint.keys())
@@ -774,8 +764,8 @@ def convert_paint_by_example_checkpoint(checkpoint):
     return model
 
 
-def convert_open_clip_checkpoint(checkpoint):
-    text_model = CLIPTextModel.from_pretrained(STABLE_DIFFUSION_PATH_V2)
+def convert_open_clip_checkpoint(model_base_path, checkpoint):
+    text_model = CLIPTextModel.from_pretrained(os.path.join(model_base_path, STABLE_DIFFUSION_PATH_V2))
 
     keys = list(checkpoint.keys())
 
@@ -817,20 +807,20 @@ def convert_open_clip_checkpoint(checkpoint):
 def convert(args):
     image_size = args["image_size"]
     prediction_type = args["prediction_type"]
-
     checkpoint = torch.load(args["checkpoint_path"])
+    model_base_path = args["model_base_path"]
 
     # Sometimes models don't have the global_step item
     if "global_step" in checkpoint:
         global_step = checkpoint["global_step"]
     else:
-        print("global_step key not found in model")
+        logger.warning("global_step key not found in model")
         global_step = None
 
     try:
         checkpoint = checkpoint["state_dict"]
     except KeyError:
-        print("state dict not found")
+        logger.warning("state dict not found")
         pass
 
     upcast_attention = False
@@ -914,14 +904,24 @@ def convert(args):
         checkpoint, unet_config, path=args["checkpoint_path"], extract_ema=args["extract_ema"]
     )
 
-    unet.load_state_dict(converted_unet_checkpoint)
+    try:
+        unet.load_state_dict(converted_unet_checkpoint)
+    except RuntimeError as e:
+        logger.error("Error while loading unet checkpoint " + str(e))
 
     # Convert the VAE model.
     vae_config = create_vae_diffusers_config(original_config, image_size=image_size)
-    converted_vae_checkpoint = convert_ldm_vae_checkpoint(checkpoint, vae_config)
+
+    converted_vae_checkpoint = None
+    try:
+        converted_vae_checkpoint = convert_ldm_vae_checkpoint(checkpoint, vae_config)
+    except KeyError as e:
+        logger.error("Error while loading vae checkpoint " + str(e))
 
     vae = AutoencoderKL(**vae_config)
-    vae.load_state_dict(converted_vae_checkpoint)
+
+    if converted_vae_checkpoint:
+        vae.load_state_dict(converted_vae_checkpoint)
 
     # Convert the text model.
     model_type = args["pipeline_type"]
@@ -929,8 +929,8 @@ def convert(args):
         model_type = original_config.model.params.cond_stage_config.target.split(".")[-1]
 
     if model_type == "FrozenOpenCLIPEmbedder":
-        text_model = convert_open_clip_checkpoint(checkpoint)
-        tokenizer = CLIPTokenizer.from_pretrained(STABLE_DIFFUSION_PATH_V2, subfolder="tokenizer")
+        text_model = convert_open_clip_checkpoint(model_base_path, checkpoint)
+        tokenizer = CLIPTokenizer.from_pretrained(os.path.join(model_base_path, STABLE_DIFFUSION_PATH_V2), subfolder="tokenizer")
         pipe = StableDiffusionPipeline(
             vae=vae,
             text_encoder=text_model,
@@ -942,9 +942,9 @@ def convert(args):
             requires_safety_checker=False,
         )
     elif model_type == "PaintByExample":
-        vision_model = convert_paint_by_example_checkpoint(checkpoint)
-        tokenizer = CLIPTokenizer.from_pretrained(CLIP_VIT_LARGE_PATH)
-        feature_extractor = AutoFeatureExtractor.from_pretrained(SAFETY_CHECK_PATH)
+        vision_model = convert_paint_by_example_checkpoint(model_base_path, checkpoint)
+        tokenizer = CLIPTokenizer.from_pretrained(os.path.join(model_base_path, CLIP_VIT_LARGE_PATH))
+        feature_extractor = AutoFeatureExtractor.from_pretrained(os.path.join(model_base_path, SAFETY_CHECK_PATH))
         pipe = PaintByExamplePipeline(
             vae=vae,
             image_encoder=vision_model,
@@ -954,10 +954,10 @@ def convert(args):
             feature_extractor=feature_extractor,
         )
     elif model_type == "FrozenCLIPEmbedder":
-        text_model = convert_ldm_clip_checkpoint(checkpoint)
-        tokenizer = CLIPTokenizer.from_pretrained(CLIP_VIT_LARGE_PATH)
-        safety_checker = StableDiffusionSafetyChecker.from_pretrained(SAFETY_CHECK_PATH)
-        feature_extractor = AutoFeatureExtractor.from_pretrained(SAFETY_CHECK_PATH)
+        text_model = convert_ldm_clip_checkpoint(model_base_path, checkpoint)
+        tokenizer = CLIPTokenizer.from_pretrained(os.path.join(model_base_path, CLIP_VIT_LARGE_PATH))
+        safety_checker = StableDiffusionSafetyChecker.from_pretrained(os.path.join(model_base_path, SAFETY_CHECK_PATH))
+        feature_extractor = AutoFeatureExtractor.from_pretrained(os.path.join(model_base_path, SAFETY_CHECK_PATH))
         pipe = StableDiffusionPipeline(
             vae=vae,
             text_encoder=text_model,
@@ -970,7 +970,7 @@ def convert(args):
     else:
         text_config = create_ldm_bert_config(original_config)
         text_model = convert_ldm_bert_checkpoint(checkpoint, text_config)
-        tokenizer = BertTokenizerFast.from_pretrained(BERT_BASE_UNCASED_PATH)
+        tokenizer = BertTokenizerFast.from_pretrained(os.path.join(model_base_path, BERT_BASE_UNCASED_PATH))
         pipe = LDMTextToImagePipeline(
             vqvae=vae,
             bert=text_model,
