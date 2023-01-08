@@ -5,17 +5,72 @@ from PyInstaller.utils.hooks import copy_metadata
 
 block_cipher = None
 
-datas = []
+datas = [
+]
+datas += copy_metadata('tqdm')
+datas += copy_metadata('regex')
+datas += copy_metadata('requests')
+datas += copy_metadata('packaging')
+datas += copy_metadata('filelock')
+datas += copy_metadata('numpy')
+datas += copy_metadata('tokenizers')
+datas += copy_metadata('ftfy')
+datas += copy_metadata('rich')
+
 
 a = Analysis(
     [
         './server.py',
     ],
-    pathex=[],
+    pathex=[
+    ],
     binaries=[
     ],
     datas=datas,
     hiddenimports=[
+        "xformers",
+        "krita",
+        "tqdm",
+        "ftfy",
+        "rich",
+        "libpng",
+        "jpeg",
+        "diffusers",
+        "transformers",
+        "taming",
+        "taming.modules",
+        "taming.modules.vqvae",
+        "taming.modules.vqvae.quantize",
+        "clip",
+        "stablediffusion",
+        "torch",
+        "torchvision",
+        "torchvision.io",
+        "torch.onnx.symbolic_opset7",
+        "torch.onnx.symbolic_opset8",
+        "torch.onnx.symbolic_opset9",
+        "torch.onnx.symbolic_opset10",
+        "torch.onnx.symbolic_opset11",
+        "torch.onnx.symbolic_opset12",
+        "torch.onnx.symbolic_opset14",
+        "torch.onnx.symbolic_opset15",
+        "torch.onnx.symbolic_opset16",
+        "torch.onnx.symbolic_opset17",
+        "opencv",
+        "einops",
+        "imwatermark",
+        "omegaconf",
+        "contextlib",
+        "itertools",
+        "pytorch_lightning",
+        "huggingface_hub.hf_api",
+        "huggingface_hub.repository",
+        "pywt._extensions._cwt",
+        "kornia",
+        "inspect",
+        "psutil",
+        "matplotlib",
+        "bitsandbytes",
     ],
     hookspath=[],
     hooksconfig={},

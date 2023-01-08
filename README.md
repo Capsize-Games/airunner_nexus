@@ -33,9 +33,10 @@ placed in `~/stablediffusion`. See [Stable Diffusion directory structure](#stabl
 Easiest method
  
 1. [Install docker](https://docs.docker.com/engine/install/)
-2. `sudo apt install nvidia-container-toolkit`
-3. Copy `daemon.json` to `/etc/docker/daemon.json` (if you already have a daemon.js file in that directory, just copy the contents)
-4. `docker-compose up`
+2. [Install nvdia-container-runtime](https://nvidia.github.io/nvidia-container-runtime/)
+3. `sudo apt install nvidia-container-toolkit`
+4. Copy `daemon.json` to `/etc/docker/daemon.json` (if you already have a daemon.js file in that directory, just copy the contents)
+5. `docker-compose up`
 
 ----
 
@@ -46,6 +47,7 @@ Easiest method
 ```
 docker exec -it runai /bin/bash /app/bin/buildlinux.sh
 ```
+
 Runai server will be in the `dist` directory.
 
 **Run docker offline**
