@@ -20,6 +20,5 @@ services:
       - ./:/app
       - /home:/home
     working_dir: /app
-    entrypoint: /bin/bash
-    command: -c "python3 server.py"
+    command: python server.py
     runtime: nvidia
