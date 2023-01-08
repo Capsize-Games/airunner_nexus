@@ -10,11 +10,13 @@ from settings import (
     CACHE_TIME,
     KSD_VERSION_FILE,
     RUNAI_VERSION_FILE,
-    UPGRADE_PATH,
-    VERSION,
 )
+
 HERE = os.path.dirname(os.path.realpath(__file__))
 TMP = "/tmp"
+# read VERSION file
+with open(os.path.join(HERE, "VERSION"), "r") as f:
+    VERSION = f.read().strip()
 
 
 class Update:
