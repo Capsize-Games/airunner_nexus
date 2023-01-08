@@ -24,6 +24,7 @@ from PIL import Image
 from stablediffusion.classes.txt2img import Txt2Img
 from convert_original_stable_diffusion_to_diffusers import convert as ckpt_to_diffusers
 
+
 class SDRunner:
     _current_model = ""
     scheduler_name = "ddpm"
