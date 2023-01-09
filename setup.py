@@ -1,5 +1,9 @@
 from setuptools import setup
 
+"""
+version here and VERSION file must be kept in sync.
+TODO: automate this
+"""
 setup(
     name="runai",
     py_modules=["runai"],

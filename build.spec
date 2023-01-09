@@ -5,8 +5,7 @@ from PyInstaller.utils.hooks import copy_metadata
 
 block_cipher = None
 
-datas = [
-]
+datas = []
 datas += copy_metadata('tqdm')
 datas += copy_metadata('regex')
 datas += copy_metadata('requests')
@@ -16,6 +15,10 @@ datas += copy_metadata('numpy')
 datas += copy_metadata('tokenizers')
 datas += copy_metadata('ftfy')
 datas += copy_metadata('rich')
+datas += copy_metadata('transformers')
+
+# copy files
+datas += [(os.path.join('VERSION'), '.')]
 
 
 a = Analysis(

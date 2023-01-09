@@ -42,18 +42,36 @@ Easiest method
 
 ### Docker commands
 
-**Build the server**
+**Enter bash**
 
 ```
-docker exec -it runai /bin/bash /app/bin/buildlinux.sh
+docker-compose run --service-ports app -c "/bin/bash bash"
+```
+
+**Update requirements**
+
+```
+docker-compose run --service-ports app pip3 install -r /app/requirements.txt
+```
+
+**Build RunAI**
+
+```
+docker-compose run --service-ports app /app/bin/buildlinux.sh
 ```
 
 Runai server will be in the `dist` directory.
 
-**Run docker offline**
+**Start the server**
 
 ```
-docker-compose run --network offline runai
+docker-compose run --service-ports -v /home:/home app python3 server.py
+```
+
+**Clean up**
+
+```
+docker-compose run --service-ports app /app/bin/clean.sh
 ```
 ---
 

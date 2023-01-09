@@ -18,7 +18,5 @@ services:
       - "50006:50006"
     volumes:
       - ./:/app
-      - /home:/home
     working_dir: /app
-    command: python server.py
     runtime: nvidia
