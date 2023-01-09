@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 DISABLE_TELEMETRY=true
-PYTHONOPTIMIZE=0 pyinstaller --log-level=DEBUG --noconfirm ./build.spec --clean
+PYTHONOPTIMIZE=0 python3 -m PyInstaller --log-level=WARN --noconfirm --clean ./build.spec 2>&1 | tee build.log
 
 ## get version from VERSION file
 VERSION=$(cat VERSION)

@@ -53,37 +53,14 @@ Easiest method
 
 ### Docker commands
 
-**Enter bash**
+All of the following commands are contained in `/bin/dc`, you can add it to your path or run it directly.
 
-```
-docker-compose run --service-ports app bash
-```
+- **Run** `./bin/dc start` run the server
+- **Shell** `./bin/dc bash` enter shell
+- **Update** `./bin/dc updatereqs` update pip
+- **Build** `./bin/dc build` build the server
+- **Clean** `./bin/dc /app/bin/clean.sh`
 
-**Update requirements**
-
-```
-docker-compose run --service-ports app pip3 install -r /app/requirements.txt
-```
-
-**Build RunAI**
-
-```
-docker-compose run --service-ports app /app/bin/buildlinux.sh
-```
-
-Runai server will be in the `dist` directory.
-
-**Start the server**
-
-```
-docker-compose run --service-ports -v /home:/home app python3 server.py
-```
-
-**Clean up**
-
-```
-docker-compose run --service-ports app /app/bin/clean.sh
-```
 ---
 
 ### More commands

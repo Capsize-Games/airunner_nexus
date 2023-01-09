@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
-import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 5)
+import shutil
 from PyInstaller.utils.hooks import copy_metadata
 
 block_cipher = None
@@ -20,19 +20,25 @@ datas += copy_metadata('transformers')
 # copy files
 datas += [(os.path.join('VERSION'), '.')]
 
+package_path = os.path.join("/usr/local/lib/python3.10/dist-packages/")
 
 a = Analysis(
     [
         './server.py',
     ],
     pathex=[
+        os.path.join(package_path , "torch/lib"),
+        os.path.join(package_path , "torch/jit"),
     ],
     binaries=[
+        (os.path.join(package_path, "torch/lib/libtorch_global_deps.so"), "torch/lib"),
+        (os.path.join(package_path, "torch/bin/torch_shm_manager"), "torch/bin"),
+        (os.path.join(package_path, 'nvidia/cudnn/lib/libcudnn_ops_infer.so.8'), '.'),
+        (os.path.join(package_path, 'nvidia/cudnn/lib/libcudnn_cnn_infer.so.8'), '.'),
     ],
     datas=datas,
     hiddenimports=[
         "xformers",
-        "krita",
         "tqdm",
         "ftfy",
         "rich",
@@ -40,6 +46,7 @@ a = Analysis(
         "jpeg",
         "diffusers",
         "transformers",
+        "nvidia",
         "taming",
         "taming.modules",
         "taming.modules.vqvae",
@@ -84,8 +91,11 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-
+pyz = PYZ(
+    a.pure,
+    a.zipped_data,
+    cipher=block_cipher
+)
 exe = EXE(
     pyz,
     a.scripts,
@@ -112,4 +122,10 @@ coll = COLLECT(
     upx=True,
     upx_exclude=[],
     name='runai',
+)
+
+# copy directories to dist
+shutil.copytree(
+    '/usr/local/lib/python3.10/dist-packages/transformers/',
+    './dist/runai/transformers'
 )
