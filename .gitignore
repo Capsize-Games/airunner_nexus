@@ -6,3 +6,5 @@ database.db
 build
 dist
 tmp/*
+*_version.txt
+build.log

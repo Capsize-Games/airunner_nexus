@@ -18,8 +18,19 @@ server.
 
 ## Limitations
 
-- Data between server and client is not encrypted
-- Only uses float16 (half floats)
+### Data between server and client is not encrypted
+
+This only matters if someone wants to create a production ready version of this
+server which would be hosted on the internet. This server is not designed for
+that purpose. It was designed with a single use-case in mind: the ability to run
+Stable Diffusion (and other AI models) locally. It was designed for use with the
+Krita Stable Diffusion plugin, but can work with any interface provided someone 
+writes a client for it.
+
+### Only uses float16 (half floats)
+
+If someone wants to build in functionality for float32 I will merge the code but
+currently this is not a priority feature.
 
 ---
 
@@ -42,19 +53,14 @@ Easiest method
 
 ### Docker commands
 
-**Build the server**
+All of the following commands are contained in `/bin/dc`, you can add it to your path or run it directly.
 
-```
-docker exec -it runai /bin/bash /app/bin/buildlinux.sh
-```
+- **Run** `./bin/dc start` run the server
+- **Shell** `./bin/dc bash` enter shell
+- **Update** `./bin/dc updatereqs` update pip
+- **Build** `./bin/dc build` build the server
+- **Clean** `./bin/dc /app/bin/clean.sh`
 
-Runai server will be in the `dist` directory.
-
-**Run docker offline**
-
-```
-docker-compose run --network offline runai
-```
 ---
 
 ### More commands

@@ -87,7 +87,7 @@ class Update:
 
     def download_extract_krita_stable_diffusion_plugin(self, version_data):
         latest_ksd_version = version_data["versions"]["latest_ksd_version"]
-        ksd_file_name = f"krita_stable_diffusion-{latest_ksd_version}.tar.gz"
+        ksd_file_name = f"krita_stable_diffusion-{latest_ksd_version}.zip"
         ksd_download_url = f"https://github.com/w4ffl35/krita_stable_diffusion/releases/tag/{latest_ksd_version}/{ksd_file_name}"
         self.download_and_extract(ksd_download_url, ksd_file_name)
 
