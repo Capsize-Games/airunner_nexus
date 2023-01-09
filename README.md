@@ -18,8 +18,19 @@ server.
 
 ## Limitations
 
-- Data between server and client is not encrypted
-- Only uses float16 (half floats)
+### Data between server and client is not encrypted
+
+This only matters if someone wants to create a production ready version of this
+server which would be hosted on the internet. This server is not designed for
+that purpose. It was designed with a single use-case in mind: the ability to run
+Stable Diffusion (and other AI models) locally. It was designed for use with the
+Krita Stable Diffusion plugin, but can work with any interface provided someone 
+writes a client for it.
+
+### Only uses float16 (half floats)
+
+If someone wants to build in functionality for float32 I will merge the code but
+currently this is not a priority feature.
 
 ---
 
@@ -45,7 +56,7 @@ Easiest method
 **Enter bash**
 
 ```
-docker-compose run --service-ports app -c "/bin/bash bash"
+docker-compose run --service-ports app bash
 ```
 
 **Update requirements**
