@@ -3,7 +3,8 @@
 # get command from first argument
 COMMAND=$1
 APP_NAME="app"
-DC="docker-compose run --rm --service-ports -v .:/app:"
+HERE=$(pwd)
+DC="docker-compose run --rm --service-ports -v $HERE:/app:"
 ARGS=""
 DO_COMMAND=""
 
@@ -20,7 +21,7 @@ if [ "$COMMAND" == "updatereqs" ]; then
 fi
 
 if [ "$COMMAND" == "start" ]; then
-  ARGS="-v /home:/home:"
+  ARGS="-v /home/$USER/stablediffusion:/home/$USER/stablediffusion:"
   DO_COMMAND="python3 server.py"
 fi
 
