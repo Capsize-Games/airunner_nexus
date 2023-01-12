@@ -1,5 +1,7 @@
 import os
 import time
+import zipfile
+
 from logger import logger
 import shutil
 import urllib.request
@@ -13,6 +15,7 @@ from settings import (
 )
 
 HERE = os.path.dirname(os.path.realpath(__file__))
+KRITA_DIR = os.path.join(HERE, "..", "..")
 TMP = "/tmp"
 # read VERSION file
 with open(os.path.join(HERE, "VERSION"), "r") as f:
@@ -25,7 +28,7 @@ class Update:
         self.download_updates()
 
         # make a backup of this directory
-        self.backup_files()
+        # self.backup_files()
 
         # replace old files with new downloaded files
         self.update_all_files()
@@ -85,22 +88,23 @@ class Update:
         with tarfile.open(path) as tar:
             tar.extractall(os.path.join(TMP))
 
-    def download_extract_krita_stable_diffusion_plugin(self, version_data):
-        latest_ksd_version = version_data["versions"]["latest_ksd_version"]
-        ksd_file_name = f"krita_stable_diffusion-{latest_ksd_version}.zip"
-        ksd_download_url = f"https://github.com/w4ffl35/krita_stable_diffusion/releases/tag/{latest_ksd_version}/{ksd_file_name}"
-        self.download_and_extract(ksd_download_url, ksd_file_name)
-
-    def download_extract_runai_server(self, version_data):
-        latest_runai_version = version_data["versions"]["latest_runai_version"]
-        runai_file_name = f"runai-{latest_runai_version}.tar.gz"
-        runai_download_url = f"https://sddist.s3.amazonaws.com/{runai_file_name}"
-        self.download_and_extract(runai_download_url, runai_file_name)
+    # def download_extract_krita_stable_diffusion_plugin(self, version_data):
+    #     latest_ksd_version = version_data["versions"]["latest_ksd_version"]
+    #     ksd_file_name = f"krita_stable_diffusion-{latest_ksd_version}.zip"
+    #     ksd_download_url = f"https://github.com/w4ffl35/krita_stable_diffusion/releases/tag/{latest_ksd_version}/{ksd_file_name}"
+    #     self.download_and_extract(ksd_download_url, ksd_file_name)
+    #
+    # def download_extract_runai_server(self, version_data):
+    #     latest_runai_version = version_data["versions"]["latest_runai_version"]
+    #     runai_file_name = f"runai-{latest_runai_version}.tar.gz"
+    #     runai_download_url = f"https://sddist.s3.amazonaws.com/{runai_file_name}"
+    #     self.download_and_extract(runai_download_url, runai_file_name)
 
     def download_updates(self):
-        version_data = self.get_current_versions()
+        # version_data = self.get_current_versions()
         #self.download_extract_krita_stable_diffusion_plugin(version_data)
-        self.download_extract_runai_server(version_data)
+        #self.download_extract_runai_server(version_data)
+        pass
 
     def backup_files(self):
         """
@@ -127,11 +131,29 @@ class Update:
         copy files from the update directory to the current directory
         :return:
         """
-        logger.info("Updating all files")
-        # copy files from the update directory to the current directory
-        tmp_path = os.path.join(TMP, "runai")
-        for file in os.listdir(tmp_path):
-            shutil.copy(
-                os.path.join(tmp_path, file),
-                os.path.join(HERE, file)
-            )
+        logger.info("Removing old files")
+        os.chdir(KRITA_DIR)
+        shutil.rmtree(os.path.join(KRITA_DIR, "krita_stable_diffusion"))
+        os.remove(os.path.join(KRITA_DIR, "krita_stable_diffusion.desktop"))
+
+        url = "https://github.com/w4ffl35/krita_stable_diffusion/releases/download/latest-linux/krita_stable_diffusion.zip"
+        file_name = "krita_stable_diffusion.zip"
+        krita_zip = os.path.join(TMP, file_name)
+
+        logger.info(f"Downloading {url} to {krita_zip}")
+        urllib.request.urlretrieve(url, krita_zip)
+
+        logger.info(f"Extracting {krita_zip} to {KRITA_DIR}")
+        with tarfile.open(krita_zip) as tar:
+            tar.extractall(KRITA_DIR)
+
+        logger.info("Extracting server")
+        ksd_path = os.path.join(KRITA_DIR, "krita_stable_diffusion")
+        os.chdir(ksd_path)
+        krita_file = os.path.join(KRITA_DIR, "krita_stable_diffusion", "runai.zip")
+        with zipfile.ZipFile(krita_file, 'r') as zip_ref:
+            zip_ref.extractall(ksd_path)
+
+        logger.info("Cleaning up")
+        os.remove(krita_zip)
+        os.remove(krita_file)

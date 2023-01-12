@@ -7,5 +7,5 @@ VERSION=$(cat VERSION)
 
 ## tar.gz the dist/runai directory
 cd dist
-tar -czvf runai-${VERSION}.tar.gz runai
+tar -czvf runai.tar.gz runai
 cd ..
