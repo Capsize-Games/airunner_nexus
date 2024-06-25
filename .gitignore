@@ -8,3 +8,5 @@ dist
 tmp/*
 *_version.txt
 build.log
+venv
+*.egg-info
