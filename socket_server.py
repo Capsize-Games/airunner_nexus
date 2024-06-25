@@ -93,17 +93,17 @@ class SocketServer(SocketConnection):
         :return: None
         """
         size_in_bytes = len(msg)
+        bytes_sent = 0
         if not self.soc_connection:
-            raise NoConnectionToClientError("No connection to client")
+            logger.error("No connection to client")
         else:
             try:
                 bytes_sent = self.soc_connection.send(msg)
             except Exception as e:
                 logger.error("something went wrong")
-                bytes_sent = 0
                 logger.error(e)
             if bytes_sent != size_in_bytes:
-                raise FailedToSendError()
+                logger.error("Failed to send all bytes")
         return bytes_sent
 
     def message_client(self, message):
@@ -125,7 +125,7 @@ class SocketServer(SocketConnection):
         packet_size = self.packet_size
         for i in range(0, len(message), packet_size):
             packet = message[i:i + packet_size]
-            self.do_send(packet + b'\x00' * (packet_size - len(packet)))
+            self.do_send(packet.encode() + b'\x00' * (packet_size - len(packet)))
 
     def send_end_message(self):
         # send a message of all zeroes of expected_byte_size length
@@ -195,14 +195,6 @@ class SocketServer(SocketConnection):
         packet = self.soc_connection.recv(self.signal_byte_size)
         return packet
 
-    def check_for_latest_version(self):
-        """
-        Check github for latest version of this plugin
-        :return:
-        """
-        version_data = Update().get_current_versions()
-        self.message_client(version_data)
-
     def update_versions(self):
         """
         Update client and server
@@ -233,7 +225,6 @@ class SocketServer(SocketConnection):
                         self.has_connection = True
                         current_state = codes.AWAITING_MESSAGE
                         logger.info(f"connected with {self.soc_addr}")
-                        self.check_for_latest_version()
                 except socket.timeout:
                     total_timeouts += 1
                     if total_timeouts >= 3 and self.do_timeout:
@@ -276,6 +267,7 @@ class SocketServer(SocketConnection):
                         if packet != b'':
                             packets.append(packet)
                     msg = b''.join(packets)
+                    print("MESSAGE:", msg)
                 except socket.timeout:
                     pass
                 except AttributeError:
@@ -289,6 +281,7 @@ class SocketServer(SocketConnection):
 
                 if msg is not None and msg != b'':
                     logger.info("message received")
+                    print("MESSAGE RECEIVED")
                     self.message = msg  # push directly to queue
                     self.soc_connection.settimeout(None)
                     current_state = codes.AWAITING_MESSAGE

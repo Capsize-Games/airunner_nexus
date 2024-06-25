@@ -7,11 +7,7 @@ import shutil
 import urllib.request
 import tarfile
 from settings import (
-    KSD_VERSION_CHECK_URL,
-    RUNAI_VERSION_CHECK_URL,
     CACHE_TIME,
-    KSD_VERSION_FILE,
-    RUNAI_VERSION_FILE,
 )
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -61,25 +57,6 @@ class Update:
             logger.error(e)
         logger.info("No cache file found")
         return None
-
-    def get_current_versions(self):
-        logger.info("CHECK FOR LATEST VERSION")
-        try:
-            # check the files for json
-            ksd_version = self.cached_or_request(KSD_VERSION_FILE, KSD_VERSION_CHECK_URL)
-            runai_version = self.cached_or_request(RUNAI_VERSION_FILE, RUNAI_VERSION_CHECK_URL)
-
-            # send versions to client
-            return {
-                "versions": {
-                    "latest_ksd_version": ksd_version,
-                    "latest_runai_version": runai_version,
-                    "current_runai_version": VERSION,
-                }
-            }
-        except Exception as e:
-            logger.error("Could not check for latest version" + str(e))
-        return {}
 
     def download_and_extract(self, url, file_name):
         path = os.path.join(TMP, file_name)
