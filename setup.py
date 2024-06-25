@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='runai',
-    version="v1.1.0",
+    version="v1.1.1",
     author="Capsize LLC",
     description="Run a socket server for AI models.",
     long_description=open("README.md", "r", encoding="utf-8").read(),
@@ -23,15 +23,15 @@ setup(
         "optimum==1.19.1",
 
         # Stable Diffusion Dependencies
-        # "omegaconf==2.3.0",
-        # "diffusers==0.27.2",
-        # "controlnet_aux==0.0.8",
-        # "einops==0.7.0",  # Required for controlnet_aux
-        # "Pillow==10.3.0",
-        # "pyre-extensions==0.0.30",
-        # "safetensors==0.4.3",
-        # "compel==2.0.2",
-        # "tomesd==0.1.3",
+        "omegaconf==2.3.0",
+        "diffusers==0.27.2",
+        "controlnet_aux==0.0.8",
+        "einops==0.7.0",  # Required for controlnet_aux
+        "Pillow==10.3.0",
+        "pyre-extensions==0.0.30",
+        "safetensors==0.4.3",
+        "compel==2.0.2",
+        "tomesd==0.1.3",
 
         # LLM Dependencies
         "transformers==4.40.1",
