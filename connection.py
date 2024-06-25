@@ -84,7 +84,7 @@ class Connection:
         self.port = kwargs.get("port", settings.DEFAULT_PORT)
         self.host = kwargs.get("host", settings.DEFAULT_HOST)
         self.do_timeout = kwargs.get("do_timeout", False)
-        self.packet_size = kwargs.get("packet_size", 1)
+        self.packet_size = kwargs.get("packet_size", settings.PACKET_SIZE)
         self.max_client_connections = kwargs.get("max_client_connections", 1)
         self.model_base_path = kwargs.get("model_base_path", ".")
 
