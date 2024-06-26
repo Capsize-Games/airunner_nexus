@@ -1,7 +1,7 @@
 import time
 import queue
-from logger import logger
-from socket_server import SocketServer
+from runai.logger import logger
+from runai.socket_server import SocketServer
 
 
 class SimpleEnqueueSocketServer(SocketServer):

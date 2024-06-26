@@ -5,7 +5,7 @@ import threading
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.generation.streamers import TextIteratorStreamer
 
-from external_condition_stopping_criteria import ExternalConditionStoppingCriteria
+from runai.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
 
 
 class LLMHandler:
@@ -142,6 +142,7 @@ class LLMHandler:
             if replaced:
                 parsed = new_text.replace("[/INST]", "")
                 parsed = parsed.replace("</s>", "")
+                parsed = parsed.replace("<</SYS>>", "")
                 yield parsed
 
     def generate(self, data):

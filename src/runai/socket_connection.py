@@ -1,7 +1,7 @@
 import socket
 import queue
-import settings
-from connection import Connection
+from runai import settings
+from runai.connection import Connection
 
 
 class SocketConnection(Connection):

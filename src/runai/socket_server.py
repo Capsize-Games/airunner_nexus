@@ -4,11 +4,11 @@ import socket
 import threading
 import time
 import queue
-import settings
-import messagecodes as codes
-from logger import logger
-from exceptions import FailedToSendError, NoConnectionToClientError
-from socket_connection import SocketConnection
+from runai import settings
+import runai.messagecodes as codes
+from runai.logger import logger
+from runai.exceptions import FailedToSendError, NoConnectionToClientError
+from runai.socket_connection import SocketConnection
 
 
 class SocketServer(SocketConnection):

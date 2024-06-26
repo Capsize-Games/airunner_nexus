@@ -1,5 +1,5 @@
 import argparse
-import settings
+from runai import settings
 
 
 def parse_args():

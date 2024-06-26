@@ -1,7 +1,7 @@
 import threading
-import settings
+from runai import settings
 from typing import Optional
-from logger import logger
+from runai.logger import logger
 
 
 class Connection:

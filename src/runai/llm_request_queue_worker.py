@@ -1,8 +1,8 @@
 import json
-import settings
-from llm_handler import LLMHandler
-from logger import logger
-from simple_enqueue_socket_server import SimpleEnqueueSocketServer
+from runai import settings
+from runai.llm_handler import LLMHandler
+from runai.logger import logger
+from runai.simple_enqueue_socket_server import SimpleEnqueueSocketServer
 
 
 class LLMRequestQueueWorker(SimpleEnqueueSocketServer):

@@ -3,8 +3,8 @@ import socket
 
 
 class SocketClient:
-    def __init__(self, host, port):
-        self.packet_size = 1024
+    def __init__(self, host, port, packet_size):
+        self.packet_size = packet_size
         self.host = host
         self.port = port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
