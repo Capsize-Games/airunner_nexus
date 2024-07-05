@@ -266,7 +266,6 @@ class SocketServer(SocketConnection):
                         if packet != b'':
                             packets.append(packet)
                     msg = b''.join(packets)
-                    print("MESSAGE:", msg)
                 except socket.timeout:
                     pass
                 except AttributeError:
@@ -280,7 +279,6 @@ class SocketServer(SocketConnection):
 
                 if msg is not None and msg != b'':
                     logger.info("message received")
-                    print("MESSAGE RECEIVED")
                     self.message = msg  # push directly to queue
                     self.soc_connection.settimeout(None)
                     current_state = codes.AWAITING_MESSAGE
