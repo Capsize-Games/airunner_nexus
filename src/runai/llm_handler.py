@@ -71,6 +71,7 @@ class LLMHandler:
         decoder_start_token_id=None,
         use_cache=True,
         length_penalty=1.5,
+        history_prompt=""
     ):
         chat_template = (
             "{% for message in messages %}"
@@ -83,12 +84,15 @@ class LLMHandler:
             "{% endif %}"
             "{% endfor %}"
         )
+
         rendered_template = self.tokenizer.apply_chat_template(
             chat_template=chat_template,
             conversation=conversation if conversation is not None else [],
             tokenize=False
         )
         self.rendered_template = rendered_template
+        print("RENDERED TEMPLATE")
+        print(rendered_template)
         model_inputs = self.tokenizer(
             rendered_template,
             return_tensors="pt"
