@@ -90,9 +90,8 @@ class LLMHandler:
             conversation=conversation if conversation is not None else [],
             tokenize=False
         )
+        #print(rendered_template)
         self.rendered_template = rendered_template
-        print("RENDERED TEMPLATE")
-        print(rendered_template)
         model_inputs = self.tokenizer(
             rendered_template,
             return_tensors="pt"
