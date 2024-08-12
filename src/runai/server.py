@@ -4,6 +4,7 @@ from runai import settings
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--model-name', type=str, default=settings.DEFAULT_MODEL_NAME)
     parser.add_argument('--server', type=str, default=settings.DEFAULT_SERVER_TYPE)
     parser.add_argument('--port', type=int, default=settings.DEFAULT_PORT)
     parser.add_argument('--host', type=str, default=settings.DEFAULT_HOST)
@@ -18,6 +19,11 @@ def parse_args():
 if __name__ == '__main__':
     # get command line arguments
     args = parse_args()
+
+    model_name = args.model_name
+    if model_name is None or model_name == "" or model_name not in settings.MODELS:
+        model_name = settings.DEFAULT_MODEL_NAME
+
     if args.server == "LLM":
         from llm_request_queue_worker import LLMRequestQueueWorker
         server_class_ = LLMRequestQueueWorker
@@ -27,6 +33,7 @@ if __name__ == '__main__':
     else:
         raise ValueError(f"Unknown server type: {args.server}")
     app = server_class_(
+        model_name=model_name,
         port=args.port,
         host=args.host,
         do_timeout=args.timeout,

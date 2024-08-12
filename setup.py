@@ -48,6 +48,13 @@ setup(
         "JIT==0.2.7",
         # "opencv-python-headless==4.9.0.80",
         "setuptools==69.5.1",
+
+        # Llama index
+        "llama-index==0.10.32",
+        "llama-index-readers-file==0.1.19",
+        "llama-index-readers-web==0.1.13",
+        "llama-index-embeddings-huggingface==0.2.3",
+        "llama-index-llms-huggingface==0.2.6"
     ],
     dependency_links=[],
 )

@@ -61,18 +61,17 @@ class LLMRequestQueueWorker(SimpleEnqueueSocketServer):
         return: None
         """
         logger.info("Starting Stable Diffusion Runner")
-        self.llm_handler = LLMHandler()
+        self.llm_handler = LLMHandler(model_name=self.model_name)
 
     def response_queue_worker(self):
         pass
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, model_name: str, *args, **kwargs):
         """
         Initialize the worker
         """
-        # self.db = DBConnection('database.db', b'key')
-        #self.db.insert_txt2img_sample(1, 2, b'sample', 42, 100, 100, 10, 0.5, 'model', 'scheduler')
 
+        self.model_name = model_name
         self.model_base_path = kwargs.pop("model_base_path", None)
         self.max_client_connections = kwargs.get("max_client_connections", 1)
         self.port = kwargs.get("port", settings.DEFAULT_PORT)

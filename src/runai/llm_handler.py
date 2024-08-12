@@ -6,29 +6,41 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.generation.streamers import TextIteratorStreamer
 
 from runai.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
+from runai.llm_request import LLMRequest
+from runai.rag_mixin import RagMixin
+from runai.settings import MODEL_BASE_PATH, MODELS
 
 
-class LLMHandler:
-    def __init__(self):
-        self._model_path = os.path.expanduser("~/.airunner/text/models/causallm")
-        self._model_name = "mistralai/Mistral-7B-Instruct-v0.2"
+class LLMHandler(RagMixin):
+    def __init__(self, model_name: str = ""):
+        self._model_path = os.path.expanduser(MODEL_BASE_PATH)
+        self.model_name = MODELS[model_name]["path"]
+
+        # RagMixin.__init__(self)
         self.rendered_template = None
         self.model = self.load_model()
         self.tokenizer = self.load_tokenizer()
         self.streamer = self.load_streamer()
         self.generate_thread = threading.Thread(target=self.generate)
         self.generate_data = None
+        self._do_interrupt_process = False
+
+    def resume(self):
+        self._do_interrupt_process = False
+
+    def interrupt(self):
+        self._do_interrupt_process = True
 
     @property
     def model_path(self):
-        return os.path.join(self._model_path, self._model_name)
+        return os.path.join(self._model_path, self.model_name)
 
     @property
     def device(self):
         return "cuda:0" if torch.cuda.is_available() else "cpu"
 
     def do_interrupt_process(self):
-        return False  # TODO
+        return self._do_interrupt_process
 
     def load_model(self):
         return AutoModelForCausalLM.from_pretrained(
@@ -57,21 +69,7 @@ class LLMHandler:
 
     def query_model(
         self,
-        conversation=None,
-        max_new_tokens=1000,
-        min_length=1,
-        do_sample=True,
-        early_stopping=True,
-        num_beams=1,
-        temperature=0.1,
-        top_p=0.1,
-        top_k=5,
-        repetition_penalty=1.0,
-        num_return_sequences=1,
-        decoder_start_token_id=None,
-        use_cache=True,
-        length_penalty=1.5,
-        history_prompt=""
+        llm_request: LLMRequest
     ):
         chat_template = (
             "{% for message in messages %}"
@@ -80,17 +78,16 @@ class LLMHandler:
             "{% elif message['role'] == 'user' %}"
             "{{ '[INST]' + message['content'] + ' [/INST]' }}"
             "{% elif message['role'] == 'assistant' %}"
-            "{{ message['content'] + eos_token + ' ' }}"
+            "{{ message['content'] + eosets_token + ' ' }}"
             "{% endif %}"
             "{% endfor %}"
         )
 
         rendered_template = self.tokenizer.apply_chat_template(
             chat_template=chat_template,
-            conversation=conversation if conversation is not None else [],
+            conversation=llm_request.conversation if llm_request.conversation is not None else [],
             tokenize=False
         )
-        #print(rendered_template)
         self.rendered_template = rendered_template
         model_inputs = self.tokenizer(
             rendered_template,
@@ -101,19 +98,19 @@ class LLMHandler:
         )
         self.generate_data = dict(
             model_inputs,
-            max_new_tokens=max_new_tokens,
-            min_length=min_length,
-            do_sample=do_sample,
-            early_stopping=early_stopping,
-            num_beams=num_beams,
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
-            repetition_penalty=repetition_penalty,
-            num_return_sequences=num_return_sequences,
-            decoder_start_token_id=decoder_start_token_id,
-            use_cache=use_cache,
-            length_penalty=length_penalty,
+            max_new_tokens=llm_request.max_new_tokens,
+            min_length=llm_request.min_length,
+            do_sample=llm_request.do_sample,
+            early_stopping=llm_request.early_stopping,
+            num_beams=llm_request.num_beams,
+            temperature=llm_request.temperature,
+            top_p=llm_request.top_p,
+            top_k=llm_request.top_k,
+            repetition_penalty=llm_request.repetition_penalty,
+            num_return_sequences=llm_request.num_return_sequences,
+            decoder_start_token_id=llm_request.decoder_start_token_id,
+            use_cache=llm_request.use_cache,
+            length_penalty=llm_request.length_penalty,
             stopping_criteria=[stopping_criteria],
             streamer=self.streamer
         )
