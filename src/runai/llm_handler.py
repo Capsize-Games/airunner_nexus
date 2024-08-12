@@ -85,7 +85,7 @@ class LLMHandler(RagMixin):
 
         rendered_template = self.tokenizer.apply_chat_template(
             chat_template=chat_template,
-            conversation=llm_request.conversation if llm_request.conversation is not None else [],
+            conversation=llm_request.conversation,
             tokenize=False
         )
         self.rendered_template = rendered_template
@@ -127,9 +127,13 @@ class LLMHandler(RagMixin):
         self.generate_thread.start()
 
         rendered_template = rendered_template.replace("</s>", "")
-        strip_template = "<s> " + rendered_template
-        strip_template = strip_template.replace(" [INST]", "  [INST]")
-        strip_template = strip_template.replace("<s>  [INST] <<SYS>>", "<s> [INST] <<SYS>>")
+        strip_template = "<s>" + rendered_template
+        # strip_template = strip_template.replace(" [INST]", "  [INST]")
+        # strip_template = strip_template.replace("<s>  [INST] <<SYS>>", "<s>[INST]  <<SYS>>")
+
+
+        strip_template = strip_template.replace("<s>[INST] <<SYS>>", "<s>[INST]  <<SYS>>")
+        strip_template = strip_template.replace("<</SYS>>[/INST][INST]", "<</SYS>>[/INST][INST] ")
 
         streamed_template = ""
         replaced = False

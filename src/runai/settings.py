@@ -11,3 +11,4 @@ MODELS = {
     }
 }
 DEFAULT_MODEL_NAME = "mistral_instruct"
+GAME_GENRE = "fantasy"

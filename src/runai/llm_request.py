@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional, List
 
 from runai.agent import Agent
 from runai.enums import LLMQueryType
@@ -50,3 +50,28 @@ class LLMRequest:
         self.decoder_start_token_id = decoder_start_token_id
         self.use_cache = use_cache
         self.length_penalty = length_penalty
+
+    def to_dict(self):
+        return {
+            "conversation": self.conversation,
+            "listener": self.listener.to_dict() if self.listener else None,
+            "speaker": self.speaker.to_dict() if self.speaker else None,
+            "use_usernames": self.use_usernames,
+            "prompt_prefix": self.prompt_prefix,
+            "instructions": self.instructions,
+            "prompt": self.prompt,
+            "max_new_tokens": self.max_new_tokens,
+            "temperature": self.temperature,
+            "top_k": self.top_k,
+            "top_p": self.top_p,
+            "llm_query_type": self.llm_query_type,
+            "min_length": self.min_length,
+            "do_sample": self.do_sample,
+            "early_stopping": self.early_stopping,
+            "num_beams": self.num_beams,
+            "repetition_penalty": self.repetition_penalty,
+            "num_return_sequences": self.num_return_sequences,
+            "decoder_start_token_id": self.decoder_start_token_id,
+            "use_cache": self.use_cache,
+            "length_penalty": self.length_penalty
+        }

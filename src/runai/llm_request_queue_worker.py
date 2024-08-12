@@ -1,6 +1,8 @@
 import json
 from runai import settings
+from runai.agent import Agent
 from runai.llm_handler import LLMHandler
+from runai.llm_request import LLMRequest
 from runai.logger import logger
 from runai.simple_enqueue_socket_server import SimpleEnqueueSocketServer
 
@@ -35,8 +37,20 @@ class LLMRequestQueueWorker(SimpleEnqueueSocketServer):
             print(data)
             return
 
-        for text in self.llm_handler.query_model(**data):
+        print(data)
+
+        data["conversation"] = [
+            {"role": "system", "content": data["instructions"]},
+            {"role": "user", "content": data["prompt"]}
+        ]
+
+        data["listener"] = Agent(**data["listener"])
+        data["speaker"] = Agent(**data["speaker"])
+
+        llm_request = LLMRequest(**data)
+        for text in self.llm_handler.query_model(llm_request):
             self.send_message(text)
+
         self.send_end_message()
 
     def stop(self):

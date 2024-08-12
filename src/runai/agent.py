@@ -9,3 +9,9 @@ class Agent:
         else:
             conversation = [f'{msg}' for msg in self.conversation]
         return "\n".join(conversation)
+
+    def to_dict(self):
+        return {
+            "conversation": self.conversation,
+            "name": self.name
+        }
