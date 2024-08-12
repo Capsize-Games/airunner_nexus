@@ -1,18 +1,11 @@
-import os.path
 import threading
-from typing import Optional, List
 
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, ServiceContext, StorageContext, PromptHelper, \
+from llama_index.core import SimpleDirectoryReader, ServiceContext, PromptHelper, \
     SimpleKeywordTableIndex
 from llama_index.core.chat_engine import ContextChatEngine
-from llama_index.core.data_structs import IndexDict
 from llama_index.core.indices.keyword_table import KeywordTableSimpleRetriever
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.core.response_synthesizers import ResponseMode
-from llama_index.core.schema import TransformComponent
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.llms.huggingface import HuggingFaceLLM
-from llama_index.readers.file import EpubReader, PDFReader, MarkdownReader
 from llama_index.core import Settings
 from llama_index.core.readers.json import JSONReader
 
