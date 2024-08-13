@@ -10,3 +10,4 @@ tmp/*
 build.log
 venv
 *.egg-info
+settings.py

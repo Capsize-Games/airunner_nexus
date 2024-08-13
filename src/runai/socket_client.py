@@ -1,19 +1,25 @@
 import json
 import socket
+import time
 
 
 class SocketClient:
-    def __init__(self, host, port, packet_size):
+    def __init__(self, host, port, packet_size, retry_delay=2):
         self.packet_size = packet_size
         self.host = host
         self.port = port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.retry_delay = retry_delay
 
     def connect(self):
-        try:
-            self.client_socket.connect((self.host, self.port))
-        except ConnectionRefusedError:
-            print("Connection refused. Make sure the server is running.")
+        while True:
+            try:
+                self.client_socket.connect((self.host, self.port))
+                print("Connected to server.")
+                return
+            except ConnectionRefusedError:
+                print(f"Connection refused. Retrying in {self.retry_delay} seconds...")
+                time.sleep(self.retry_delay)
 
     def send_message(self, message):
         message = message.encode('utf-8')  # encode the message as UTF-8

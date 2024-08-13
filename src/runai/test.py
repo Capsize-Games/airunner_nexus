@@ -1,24 +1,25 @@
-import asyncio
-import websockets
-
-# Define a callback function to handle incoming WebSocket messages
-async def handle_websocket(websocket, path):
-    try:
-        while True:
-            message = await websocket.recv()
-            print(f"Received message: >{message}<")
-
-            # XXX: Do some stuff here with the message.
-
-            response = "Pong!"
-            await websocket.send(response)
-    except websockets.ConnectionClosed:
-        pass
+from runai.client import Client
 
 if __name__ == "__main__":
-    # Start the WebSocket server
-    start_server = websockets.serve(handle_websocket, "localhost", 12345)
-
-    asyncio.get_event_loop().run_until_complete(start_server)
-    asyncio.get_event_loop().run_forever()
-
+    client = Client()
+    # client.do_greeting()
+    # #client.swap_speaker()
+    # print(client.history)
+    # client.do_prompt("What is the meaning of life?")
+    # print(client.history)
+    # client.do_prompt("How can I find true happiness?")
+    # print(client.history)
+    # client.do_prompt("What were my first two questions?")
+    # print(client.history)
+    #
+    # # client.do_response()
+    # # client.swap_speaker()
+    # # print(client.history)
+    # #
+    # # client.do_response()
+    # # client.swap_speaker()
+    # # print(client.history)
+    while True:
+        prompt = input("Enter a prompt: ")
+        client.do_prompt(prompt)
+        print(client.history[-1]["message"])

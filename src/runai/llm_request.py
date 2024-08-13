@@ -7,7 +7,7 @@ from runai.enums import LLMQueryType
 class LLMRequest:
     def __init__(
         self,
-        conversation: Optional[List[dict]] = None,
+        history: List[dict] = None,
         listener: Agent = None,
         speaker: Agent = None,
         use_usernames: bool = False,
@@ -29,12 +29,12 @@ class LLMRequest:
         length_penalty: float = 1.0,
         llm_query_type: Optional[LLMQueryType] = None
     ):
-        self.conversation = conversation
+        self.history = history if history else []
         self.listener = listener
         self.speaker = speaker
         self.use_usernames = use_usernames
         self.prompt_prefix = prompt_prefix
-        self.instructions = instructions
+        self._instructions = instructions
         self.prompt = prompt
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
@@ -51,9 +51,25 @@ class LLMRequest:
         self.use_cache = use_cache
         self.length_penalty = length_penalty
 
+    @property
+    def instructions(self):
+        instructions = self._instructions
+        if len(self.history):
+            instructions += "\nThe conversation so far:\n"
+            for turn in self.history:
+                instructions += f"{turn['name']}: {turn['message']}\n"
+        return instructions
+
+    @property
+    def conversation(self):
+        return [
+            {"role": "system", "content": self.instructions},
+            {"role": "user", "content": self.prompt}
+        ]
+
     def to_dict(self):
         return {
-            "conversation": self.conversation,
+            "history": self.history,
             "listener": self.listener.to_dict() if self.listener else None,
             "speaker": self.speaker.to_dict() if self.speaker else None,
             "use_usernames": self.use_usernames,

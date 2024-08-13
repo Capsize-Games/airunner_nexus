@@ -34,15 +34,7 @@ class LLMRequestQueueWorker(SimpleEnqueueSocketServer):
             data = json.loads(data)
         except json.decoder.JSONDecodeError:
             logger.error(f"Improperly formatted request from client")
-            print(data)
             return
-
-        print(data)
-
-        data["conversation"] = [
-            {"role": "system", "content": data["instructions"]},
-            {"role": "user", "content": data["prompt"]}
-        ]
 
         data["listener"] = Agent(**data["listener"])
         data["speaker"] = Agent(**data["speaker"])

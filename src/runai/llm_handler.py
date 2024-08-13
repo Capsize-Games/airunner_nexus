@@ -11,13 +11,15 @@ from runai.rag_mixin import RagMixin
 from runai.settings import MODEL_BASE_PATH, MODELS
 
 
-class LLMHandler(RagMixin):
+class LLMHandler():#RagMixin):
     def __init__(self, model_name: str = ""):
-        self._model_path = os.path.expanduser(MODEL_BASE_PATH)
-        self.model_name = MODELS[model_name]["path"]
+        self.model_name = model_name
+        self.model_path = os.path.join(
+            os.path.expanduser(MODEL_BASE_PATH),
+            MODELS[self.model_name]["path"]
+        )
 
-        # RagMixin.__init__(self)
-        self.rendered_template = None
+        #RagMixin.__init__(self)
         self.model = self.load_model()
         self.tokenizer = self.load_tokenizer()
         self.streamer = self.load_streamer()
@@ -32,8 +34,8 @@ class LLMHandler(RagMixin):
         self._do_interrupt_process = True
 
     @property
-    def model_path(self):
-        return os.path.join(self._model_path, self.model_name)
+    def quantized_model_path(self):
+        return self.model_path + "_quantized"
 
     @property
     def device(self):
@@ -43,8 +45,12 @@ class LLMHandler(RagMixin):
         return self._do_interrupt_process
 
     def load_model(self):
-        return AutoModelForCausalLM.from_pretrained(
-            self.model_path,
+        model_path = self.quantized_model_path
+        if not os.path.exists(model_path):
+            model_path = self.model_path
+
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
             local_files_only=True,
             use_cache=True,
             trust_remote_code=False,
@@ -61,41 +67,34 @@ class LLMHandler(RagMixin):
             device_map=self.device,
         )
 
+        if model_path != self.quantized_model_path:
+            model.save_pretrained(self.quantized_model_path)
+        return model
+
     def load_tokenizer(self):
         return AutoTokenizer.from_pretrained(self.model_path)
 
     def load_streamer(self):
         return TextIteratorStreamer(self.tokenizer)
 
+    def rendered_template(self, conversation: list) -> str:
+        chat_template = MODELS[self.model_name]["chat_template"]
+        rendered_template = self.tokenizer.apply_chat_template(
+            chat_template=chat_template,
+            conversation=conversation,
+            tokenize=False
+        )
+        return rendered_template
+
     def query_model(
         self,
         llm_request: LLMRequest
     ):
-        chat_template = (
-            "{% for message in messages %}"
-            "{% if message['role'] == 'system' %}"
-            "{{ '[INST] <<SYS>>' + message['content'] + ' <</SYS>>[/INST]' }}"
-            "{% elif message['role'] == 'user' %}"
-            "{{ '[INST]' + message['content'] + ' [/INST]' }}"
-            "{% elif message['role'] == 'assistant' %}"
-            "{{ message['content'] + eosets_token + ' ' }}"
-            "{% endif %}"
-            "{% endfor %}"
-        )
 
-        rendered_template = self.tokenizer.apply_chat_template(
-            chat_template=chat_template,
-            conversation=llm_request.conversation,
-            tokenize=False
-        )
-        self.rendered_template = rendered_template
-        model_inputs = self.tokenizer(
-            rendered_template,
-            return_tensors="pt"
-        ).to(self.device)
-        stopping_criteria = ExternalConditionStoppingCriteria(
-            self.do_interrupt_process
-        )
+        rendered_template = self.rendered_template(llm_request.conversation)
+        model_inputs = self.tokenizer(rendered_template, return_tensors="pt").to(self.device)
+        stopping_criteria = ExternalConditionStoppingCriteria(self.do_interrupt_process)
+        print(rendered_template)
         self.generate_data = dict(
             model_inputs,
             max_new_tokens=llm_request.max_new_tokens,
@@ -126,28 +125,44 @@ class LLMHandler(RagMixin):
         )
         self.generate_thread.start()
 
-        rendered_template = rendered_template.replace("</s>", "")
-        strip_template = "<s>" + rendered_template
-        # strip_template = strip_template.replace(" [INST]", "  [INST]")
-        # strip_template = strip_template.replace("<s>  [INST] <<SYS>>", "<s>[INST]  <<SYS>>")
-
-
-        strip_template = strip_template.replace("<s>[INST] <<SYS>>", "<s>[INST]  <<SYS>>")
-        strip_template = strip_template.replace("<</SYS>>[/INST][INST]", "<</SYS>>[/INST][INST] ")
+        rendered_template = self.update_rendered_template(rendered_template)
 
         streamed_template = ""
         replaced = False
         for new_text in self.streamer:
-            streamed_template += new_text
-            streamed_template = streamed_template.replace("</s>", "")
-            if streamed_template.find(strip_template) != -1:
-                replaced = True
-            streamed_template = streamed_template.replace(strip_template, "")
+            if not replaced:
+                replaced, streamed_template = self.update_streamed_template(
+                    rendered_template,
+                    streamed_template,
+                    new_text
+                )
+
             if replaced:
-                parsed = new_text.replace("[/INST]", "")
-                parsed = parsed.replace("</s>", "")
-                parsed = parsed.replace("<</SYS>>", "")
+                parsed = self.strip_tags(new_text)
                 yield parsed
+
+    @staticmethod
+    def update_streamed_template(rendered_template, streamed_template, new_text):
+        streamed_template += new_text
+        streamed_template = streamed_template.replace("</s>", "")
+        replaced = streamed_template.find(rendered_template) != -1
+        streamed_template = streamed_template.replace(rendered_template, "")
+        return replaced, streamed_template
+
+    @staticmethod
+    def update_rendered_template(rendered_template) -> str:
+        rendered_template = rendered_template.replace("</s>", "")
+        rendered_template = "<s>" + rendered_template
+        rendered_template = rendered_template.replace("<s>[INST] <<SYS>>", "<s>[INST]  <<SYS>>")
+        rendered_template = rendered_template.replace("<</SYS>>[/INST][INST]", "<</SYS>>[/INST][INST] ")
+        return rendered_template
+
+    @staticmethod
+    def strip_tags(template: str) -> str:
+        template = template.replace("[/INST]", "")
+        template = template.replace("</s>", "")
+        template = template.replace("<</SYS>>", "")
+        return template
 
     def generate(self, data):
         self.model.generate(**data)

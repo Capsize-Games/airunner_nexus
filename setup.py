@@ -18,7 +18,7 @@ setup(
         "numpy==1.26.4",
         # Core application dependencies
         "accelerate==0.29.2",
-        "huggingface-hub==0.22.2",
+        "huggingface-hub==0.23.0",
         "torch==2.2.2",
         "optimum==1.19.1",
 
@@ -42,6 +42,7 @@ setup(
         "pycountry==23.12.11",
         "sounddevice==0.4.6",  # Required for tts and stt
         "pyttsx3==2.90",  # Required for tts
+        "peft==0.12.0",
 
         # Pyinstaller Dependencies
         "ninja==1.11.1.1",
