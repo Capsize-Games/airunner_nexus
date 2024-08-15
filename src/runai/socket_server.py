@@ -7,9 +7,9 @@ import queue
 from typing import Optional
 
 from runai import settings
-import runai.messagecodes as codes
 from runai.logger import logger
 from runai.exceptions import FailedToSendError, NoConnectionToClientError
+import runai.messagecodes as codes
 
 
 class SocketServer:
@@ -23,6 +23,45 @@ class SocketServer:
     soc_connection = None
     soc_addr = None
     threads = []
+    _failed_messages = []  # list to hold failed messages
+
+    @property
+    def message(self):
+        """
+        Does nothing. Only used for the setter.
+        """
+        return ""
+
+    @message.setter
+    def message(self, msg):
+        """
+        Place incoming messages onto the queue
+        """
+        self.queue.put(msg)
+
+    def worker(self):
+        """
+        Start a worker to handle request queue
+        """
+        logger.info("Enqueue worker started")
+        while not self.quit_event.is_set():
+            if self.has_connection:
+                # set timeout on queue
+                try:
+                    msg = self.queue.get(timeout=1)  # get a message from the queue
+                    if msg is not None:
+                        logger.info("Received message from queue")
+                        try:  # send to callback
+                            self.callback(msg)
+                        except Exception as err:  # pylint: disable=broad-except
+                            logger.info(f"callback error: {err}")
+                            raise (err)
+                except queue.Empty:
+                    pass
+            if self.quit_event.is_set():
+                break
+            time.sleep(1)
+        logger.info("SERVER WORKER: worker stopped")
 
     def start(self):
         """
@@ -51,6 +90,7 @@ class SocketServer:
                 logger.info(f"Thread {thread.name} not running")
             logger.info(f"Stopped thread {thread.name}...")
         logger.info("All threads stopped")
+        self.quit_event.set()
 
     def start_thread(
             self, target: Optional, daemon: bool = False, name: str = None
@@ -121,15 +161,6 @@ class SocketServer:
         """
         Override this method or pass it in as a parameter to handle messages
         :param msg:
-        :return:
-        """
-        pass
-
-    def worker(self):
-        """
-        Worker is started in a thread and waits for messages that are appended
-        to the queue. When a message is received, it is passed to the callback
-        method. The callback method should be overridden to handle the message.
         :return:
         """
         pass
@@ -397,6 +428,7 @@ class SocketServer:
             time.sleep(1)
 
     def __init__(self, *args, **kwargs):
+        self.queue = queue.SimpleQueue()
         self.quit_event = threading.Event()
         self.has_connection = False
         self.message = None

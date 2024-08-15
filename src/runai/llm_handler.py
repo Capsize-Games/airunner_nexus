@@ -5,6 +5,7 @@ import threading
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.generation.streamers import TextIteratorStreamer
 
+from runai import settings
 from runai.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
 from runai.llm_request import LLMRequest
 from runai.rag_mixin import RagMixin
@@ -12,7 +13,7 @@ from runai.settings import MODEL_BASE_PATH, MODELS
 
 
 class LLMHandler():#RagMixin):
-    def __init__(self, model_name: str = ""):
+    def __init__(self, model_name: str = settings.DEFAULT_MODEL_NAME):
         self.model_name = model_name
         self.model_path = os.path.join(
             os.path.expanduser(MODEL_BASE_PATH),
