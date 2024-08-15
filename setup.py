@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="airunner_nexus",
-    version="v1.4.4",
+    version="v1.4.5",
     author="Capsize LLC",
     description="Run a socket server for AI models.",
     long_description=open("README.md", "r", encoding="utf-8").read(),
