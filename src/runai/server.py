@@ -7,7 +7,7 @@ import queue
 from typing import Optional
 
 from runai import settings
-from runai.llm_handler import LLMHandler
+from runai.llm.llm_handler import LLMHandler
 from runai.logger import logger
 from runai.exceptions import FailedToSendError, NoConnectionToClientError
 import runai.messagecodes as codes

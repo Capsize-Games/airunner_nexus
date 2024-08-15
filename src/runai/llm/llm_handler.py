@@ -6,8 +6,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.generation.streamers import TextIteratorStreamer
 
 from runai import settings
-from runai.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
-from runai.rag_mixin import RagMixin
+from runai.llm.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
 from runai.settings import MODEL_BASE_PATH, MODELS
 
 

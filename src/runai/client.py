@@ -4,7 +4,7 @@ import socket
 import time
 from datetime import datetime
 
-from runai.agent import Agent
+from runai.llm.agent import Agent
 from runai.settings import DEFAULT_HOST, DEFAULT_PORT, PACKET_SIZE, USER_NAME, BOT_NAME, LLM_INSTRUCTIONS
 
 
