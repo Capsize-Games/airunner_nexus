@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='runai',
-    version="v1.4.1",
+    version="v1.4.2",
     author="Capsize LLC",
     description="Run a socket server for AI models.",
     long_description=open("README.md", "r", encoding="utf-8").read(),
@@ -10,7 +10,7 @@ setup(
     keywords="ai, stable diffusion, art, ai art, stablediffusion, LLM, mistral",
     license="",
     author_email="contact@capsizegames.com",
-    url="https://github.com/Capsize-Games/runai",
+    url="https://github.com/w4ffl35/runai",
     package_dir={"": "src"},
     packages=find_packages("src"),
     python_requires=">=3.10.0",
