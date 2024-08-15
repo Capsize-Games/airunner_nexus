@@ -1,7 +1,7 @@
 import json
 from runai import settings
 from runai.agent import Agent
-from runai.llm_handler import LLMHandler
+from runai.llm.llm_handler import LLMHandler
 from runai.llm_request import LLMRequest
 from runai.logger import logger
 from runai.simple_enqueue_socket_server import SimpleEnqueueSocketServer
