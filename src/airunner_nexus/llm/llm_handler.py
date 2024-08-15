@@ -28,6 +28,7 @@ class LLMHandler():#RagMixin):
 
     def resume(self):
         self._do_interrupt_process = False
+        self.streamer = self.load_streamer()
 
     def interrupt(self):
         self._do_interrupt_process = True
@@ -89,6 +90,7 @@ class LLMHandler():#RagMixin):
         self,
         data: dict
     ):
+        self.resume()
         rendered_template = self.rendered_template(data.get("conversation", [
             {"role": "system", "content": data.get("instructions", "")},
             {"role": "user", "content": data.get("prompt", "")},
@@ -129,7 +131,9 @@ class LLMHandler():#RagMixin):
 
         streamed_template = ""
         replaced = False
+        print("iterating over streamer")
         for new_text in self.streamer:
+            print("NEW TEXT", new_text)
             if not replaced:
                 replaced, streamed_template = self.update_streamed_template(
                     rendered_template,
@@ -140,6 +144,7 @@ class LLMHandler():#RagMixin):
             if replaced:
                 parsed = self.strip_tags(new_text)
                 yield parsed
+        print("DONE")
 
     @staticmethod
     def update_streamed_template(rendered_template, streamed_template, new_text):
