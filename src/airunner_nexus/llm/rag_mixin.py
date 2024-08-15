@@ -9,8 +9,8 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import Settings
 from llama_index.core.readers.json import JSONReader
 
-from ainexus.llm.enums import AgentState
-from ainexus.llm.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
+from airunner_nexus.llm.enums import AgentState
+from airunner_nexus.llm.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
 
 
 class RagMixin:

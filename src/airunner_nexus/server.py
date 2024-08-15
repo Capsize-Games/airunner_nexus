@@ -6,11 +6,11 @@ import time
 import queue
 from typing import Optional
 
-from ainexus import settings
-from ainexus.llm.llm_handler import LLMHandler
-from ainexus.logger import logger
-from ainexus.exceptions import FailedToSendError, NoConnectionToClientError
-import ainexus.messagecodes as codes
+from airunner_nexus import settings
+from airunner_nexus.llm.llm_handler import LLMHandler
+from airunner_nexus.logger import logger
+from airunner_nexus.exceptions import FailedToSendError, NoConnectionToClientError
+import airunner_nexus.messagecodes as codes
 
 
 class Server:

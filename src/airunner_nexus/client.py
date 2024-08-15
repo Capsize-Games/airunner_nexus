@@ -4,8 +4,8 @@ import socket
 import time
 from datetime import datetime
 
-from ainexus.llm.agent import Agent
-from ainexus.settings import DEFAULT_HOST, DEFAULT_PORT, PACKET_SIZE, USER_NAME, BOT_NAME, LLM_INSTRUCTIONS
+from airunner_nexus.llm.agent import Agent
+from airunner_nexus.settings import DEFAULT_HOST, DEFAULT_PORT, PACKET_SIZE, USER_NAME, BOT_NAME, LLM_INSTRUCTIONS
 
 
 class Client:
