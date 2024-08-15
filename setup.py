@@ -2,13 +2,13 @@ from setuptools import setup, find_packages
 
 setup(
     name="airunner_nexus",
-    version="v1.4.5",
+    version="v1.4.6",
     author="Capsize LLC",
     description="Run a socket server for AI models.",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    keywords="ai, stable diffusion, art, ai art, stablediffusion, LLM, mistral",
-    license="",
+    keywords="ai, LLM, mistral",
+    license="GPL-3.0",
     author_email="contact@capsizegames.com",
     url="https://github.com/Capsize-Games/airunner_nexus",
     package_dir={"": "src"},
