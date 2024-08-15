@@ -441,7 +441,6 @@ class Server:
 
     def query_llm(self, data: dict):
         for text in self.llm_handler.query_model(data):
-            print(text)
             self.send_message(text)
         self.send_end_message()
 

@@ -132,6 +132,11 @@ class Client:
         })
 
     def do_query(self, user_prompt, instructions):
+        if len(self.history):
+            instructions += "\nThe conversation so far:\n"
+            for turn in self.history:
+                instructions += f"{turn['name']}: {turn['message']}\n"
+
         self.send_message(json.dumps({
             "history": self.history,
             "listener": self.user_agent.to_dict() if self.user_agent else None,
@@ -181,6 +186,7 @@ class Client:
                 self.handle_res(res)
 
     def handle_res(self, res):
+        self.update_history(self.bot_agent.name, res)
         print(res)
 
     def connect(self):
