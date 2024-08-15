@@ -1,5 +1,6 @@
 import argparse
 from runai import settings
+from runai.llm_request_queue_worker import LLMRequestQueueWorker
 
 
 class Server:
@@ -12,11 +13,7 @@ class Server:
             model_name = settings.DEFAULT_MODEL_NAME
 
         if args.server == "LLM":
-            from llm_request_queue_worker import LLMRequestQueueWorker
             server_class_ = LLMRequestQueueWorker
-        elif args.server == "SD":
-            from stable_diffusion_request_queue_worker import StableDiffusionRequestQueueWorker
-            server_class_ = StableDiffusionRequestQueueWorker
         else:
             raise ValueError(f"Unknown server type: {args.server}")
 
