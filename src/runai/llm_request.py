@@ -63,7 +63,7 @@ class LLMRequest:
     @property
     def conversation(self):
         return [
-            {"role": "system", "content": self.instructions},
+            {"role": "system", "content": self._instructions},
             {"role": "user", "content": self.prompt}
         ]
 
