@@ -2,9 +2,8 @@ import json
 
 from runai.agent import Agent
 from runai.llm_handler import LLMHandler
-from runai.llm_request import LLMRequest
 from runai.logger import logger
-from runai.socket_server import Server
+from runai.server import Server
 
 
 class App:
@@ -38,8 +37,7 @@ class App:
         return data
 
     def query_llm(self, data: dict):
-        llm_request = LLMRequest(**data)
-        for text in self.llm_handler.query_model(llm_request):
+        for text in self.llm_handler.query_model(data):
             self.server.send_message(text)
         self.server.send_end_message()
 

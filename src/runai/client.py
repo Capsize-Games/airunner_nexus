@@ -3,7 +3,6 @@ import re
 from datetime import datetime
 
 from runai.agent import Agent
-from runai.llm_request import LLMRequest
 from runai.settings import DEFAULT_HOST, DEFAULT_PORT, PACKET_SIZE, USER_NAME, BOT_NAME, LLM_INSTRUCTIONS
 from runai.socket_client import SocketClient
 
@@ -133,16 +132,29 @@ class Client:
         })
 
     def do_query(self, user_prompt, instructions):
-        llm_request = LLMRequest(
-            history=self.history,
-            speaker=self.bot_agent,
-            listener=self.user_agent,
-            use_usernames=True,
-            prompt_prefix="",
-            instructions=instructions,
-            prompt=user_prompt
-        )
-        self.socket_client.send_message(json.dumps(llm_request.to_dict()))
+        self.socket_client.send_message(json.dumps({
+            "history": self.history,
+            "listener": self.user_agent.to_dict() if self.user_agent else None,
+            "speaker": self.bot_agent.to_dict() if self.bot_agent else None,
+            "use_usernames": True,
+            "prompt_prefix": "",
+            "instructions": instructions,
+            "prompt": user_prompt,
+            "max_new_tokens": 1000,
+            "temperature": 0.9,
+            "top_k": 50,
+            "top_p": 0.9,
+            "query_type": "llm",
+            "min_length": 0,
+            "do_sample": True,
+            "early_stopping": True,
+            "num_beams": 1,
+            "repetition_penalty": 1.0,
+            "num_return_sequences": 1,
+            "decoder_start_token_id": None,
+            "use_cache": True,
+            "length_penalty": 1.0
+        }))
 
         server_response = ""
         for res in self.socket_client.receive_message():

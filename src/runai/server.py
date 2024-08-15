@@ -7,24 +7,13 @@ import queue
 from typing import Optional
 
 from runai import settings
+from runai.llm_handler import LLMHandler
 from runai.logger import logger
 from runai.exceptions import FailedToSendError, NoConnectionToClientError
 import runai.messagecodes as codes
 
 
 class Server:
-    """
-    Opens a socket on a server and port.
-    """
-    quit_event = None
-    port = settings.DEFAULT_PORT
-    host = settings.DEFAULT_HOST
-    soc = None
-    soc_connection = None
-    soc_addr = None
-    threads = []
-    _failed_messages = []  # list to hold failed messages
-
     @property
     def message(self):
         """
@@ -52,7 +41,7 @@ class Server:
                     if msg is not None:
                         logger.info("Received message from queue")
                         try:  # send to callback
-                            self.callback(msg)
+                            self.handle_message(msg)
                         except Exception as err:  # pylint: disable=broad-except
                             logger.info(f"callback error: {err}")
                             raise (err)
@@ -157,13 +146,36 @@ class Server:
         self.open_socket()
         self.listen_to_socket()
 
-    def callback(self, msg):
+    @staticmethod
+    def parse_request_data(incoming_data: bytes) -> dict:
+        """
+        Parse incoming bytes from the client.
+        :param incoming_data: bytes - incoming data from the client
+        """
+        try:
+            data = incoming_data.decode("ascii")
+        except UnicodeDecodeError as err:
+            logger.error(f"something went wrong with a request from the client")
+            logger.error(f"UnicodeDecodeError: {err}")
+            return {}
+
+        try:
+            data = json.loads(data)
+        except json.decoder.JSONDecodeError:
+            logger.error(f"Improperly formatted request from client")
+            return {}
+
+        return data
+
+    def handle_message(self, msg: bytes):
         """
         Override this method or pass it in as a parameter to handle messages
         :param msg:
         :return:
         """
-        pass
+        data = self.parse_request_data(msg)
+        if data.get("query_type", "") == "llm":
+            self.query_llm(data)
 
     def open_socket(self):
         """
@@ -427,7 +439,22 @@ class Server:
                 break
             time.sleep(1)
 
+    def query_llm(self, data: dict):
+        for text in self.llm_handler.query_model(data):
+            print(text)
+            self.send_message(text)
+        self.send_end_message()
+
     def __init__(self, *args, **kwargs):
+        self.quit_event = None
+        self.port = settings.DEFAULT_PORT
+        self.host = settings.DEFAULT_HOST
+        self.soc = None
+        self.soc_connection = None
+        self.soc_addr = None
+        self.threads = []
+        _failed_messages = []  # list to hold failed messages
+
         self.queue = queue.SimpleQueue()
         self.quit_event = threading.Event()
         self.has_connection = False
@@ -443,6 +470,8 @@ class Server:
         self.packet_size = kwargs.get("packet_size", settings.PACKET_SIZE)
         self.max_client_connections = kwargs.get("max_client_connections", 1)
         self.model_base_path = kwargs.get("model_base_path", ".")
+
+        self.llm_handler = LLMHandler()
 
         self.start()
         self.queue = queue.SimpleQueue()
@@ -460,3 +489,7 @@ class Server:
             target=self.watch_connection,
             name="watch connection"
         )
+
+
+if __name__ == '__main__':
+    server = Server()

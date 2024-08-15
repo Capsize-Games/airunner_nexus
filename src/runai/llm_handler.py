@@ -7,7 +7,6 @@ from transformers.generation.streamers import TextIteratorStreamer
 
 from runai import settings
 from runai.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
-from runai.llm_request import LLMRequest
 from runai.rag_mixin import RagMixin
 from runai.settings import MODEL_BASE_PATH, MODELS
 
@@ -89,28 +88,29 @@ class LLMHandler():#RagMixin):
 
     def query_model(
         self,
-        llm_request: LLMRequest
+        data: dict
     ):
-
-        rendered_template = self.rendered_template(llm_request.conversation)
+        rendered_template = self.rendered_template(data.get("conversation", [
+            {"role": "system", "content": data.get("instructions", "")},
+            {"role": "user", "content": data.get("prompt", "")},
+        ]))
         model_inputs = self.tokenizer(rendered_template, return_tensors="pt").to(self.device)
         stopping_criteria = ExternalConditionStoppingCriteria(self.do_interrupt_process)
-        print(rendered_template)
         self.generate_data = dict(
             model_inputs,
-            max_new_tokens=llm_request.max_new_tokens,
-            min_length=llm_request.min_length,
-            do_sample=llm_request.do_sample,
-            early_stopping=llm_request.early_stopping,
-            num_beams=llm_request.num_beams,
-            temperature=llm_request.temperature,
-            top_p=llm_request.top_p,
-            top_k=llm_request.top_k,
-            repetition_penalty=llm_request.repetition_penalty,
-            num_return_sequences=llm_request.num_return_sequences,
-            decoder_start_token_id=llm_request.decoder_start_token_id,
-            use_cache=llm_request.use_cache,
-            length_penalty=llm_request.length_penalty,
+            max_new_tokens=data.get("max_new_tokens", 1000),
+            min_length=data.get("min_length", 0),
+            do_sample=data.get("do_sample", True),
+            early_stopping=data.get("early_stopping", True),
+            num_beams=data.get("num_beams", 1),
+            temperature=data.get("temperature", 0.9),
+            top_p=data.get("top_p", 0.9),
+            top_k=data.get("top_k", 50),
+            repetition_penalty=data.get("repetition_penalty", 1.0),
+            num_return_sequences=data.get("num_return_sequences", 1),
+            decoder_start_token_id=data.get("decoder_start_token_id", None),
+            use_cache=data.get("use_cache", True),
+            length_penalty=data.get("length_penalty", 1.0),
             stopping_criteria=[stopping_criteria],
             streamer=self.streamer
         )
