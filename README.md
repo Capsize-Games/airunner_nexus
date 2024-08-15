@@ -1,6 +1,6 @@
-# RunAI
+# AI Runner Nexus
 
-Run AI allows you to run a LLMs using a socket server.
+Run Mistral LLM offline on your computer using a socket server.
 
 ---
 
@@ -34,8 +34,8 @@ to work with any LLM.
 ## Installation
 
 ```bash
-pip install runai
-cp src/runai/default.settings.py src/runai/settings.py
+pip install airunner-nexus
+cp src/airunner_nexus/default.settings.py src/airunner_nexus/settings.py
 ```
 
 Modify `settings.py` as you see fit.
@@ -44,7 +44,7 @@ Modify `settings.py` as you see fit.
 
 ## Run server and client
 
-See `src/runai/server.py` for an example of how to run the server and `src/runai/client.py` for an example of how to run 
+See `src/airunner_nexus/server.py` for an example of how to run the server and `src/airunner_nexus/client.py` for an example of how to run 
 the client. Both of these files can be run directly from the command line.
 
 The socket client will continuously attempt to connect to the server until it is successful. The server will accept
