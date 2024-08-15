@@ -10,7 +10,7 @@ setup(
     keywords="ai, stable diffusion, art, ai art, stablediffusion, LLM, mistral",
     license="",
     author_email="contact@capsizegames.com",
-    url="https://github.com/w4ffl35/ainexus",
+    url="https://github.com/Capsize-Games/ainexus",
     package_dir={"": "src"},
     packages=find_packages("src"),
     python_requires=">=3.10.0",
