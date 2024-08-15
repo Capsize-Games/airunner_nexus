@@ -12,7 +12,7 @@ from runai.exceptions import FailedToSendError, NoConnectionToClientError
 import runai.messagecodes as codes
 
 
-class SocketServer:
+class Server:
     """
     Opens a socket on a server and port.
     """

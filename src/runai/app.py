@@ -4,13 +4,13 @@ from runai.agent import Agent
 from runai.llm_handler import LLMHandler
 from runai.llm_request import LLMRequest
 from runai.logger import logger
-from runai.socket_server import SocketServer
+from runai.socket_server import Server
 
 
 class App:
     def __init__(self):
         self.llm_handler = None
-        self.server = SocketServer()
+        self.server = Server()
         self.llm_handler = LLMHandler()
 
     @staticmethod
