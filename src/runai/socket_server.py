@@ -4,18 +4,105 @@ import socket
 import threading
 import time
 import queue
+from typing import Optional
+
 from runai import settings
 import runai.messagecodes as codes
 from runai.logger import logger
 from runai.exceptions import FailedToSendError, NoConnectionToClientError
-from runai.socket_connection import SocketConnection
 
 
-class SocketServer(SocketConnection):
+class SocketServer:
     """
     Opens a socket on a server and port.
     """
     quit_event = None
+    port = settings.DEFAULT_PORT
+    host = settings.DEFAULT_HOST
+    soc = None
+    soc_connection = None
+    soc_addr = None
+    threads = []
+
+    def start(self):
+        """
+        Starts a new thread with a connection to service.
+        :return: None
+        """
+        self.start_thread(
+            target=self.connect,
+            name="Connection thread"
+        )
+
+    def stop(self):
+        """
+        Disconnects from service and stops the thread
+        :return: None
+        """
+        self.disconnect()
+        logger.info("Stopping connection thread...")
+        for index, thread in enumerate(self.threads):
+            total = len(self.threads)
+            name = thread.name
+            logger.info(f"{index + 1} of {total} Stopping thread {name}")
+            try:
+                thread.join()
+            except RuntimeError:
+                logger.info(f"Thread {thread.name} not running")
+            logger.info(f"Stopped thread {thread.name}...")
+        logger.info("All threads stopped")
+
+    def start_thread(
+            self, target: Optional, daemon: bool = False, name: str = None
+    ):
+        """
+        Start a thread and append it to the list of threads on this object.
+        :param target: func, thread will run this function
+        :param daemon: boolean, whether the thread is a daemon thread
+        :param name: str, name of the thread
+        return: thread
+        """
+        thread = threading.Thread(target=target, daemon=daemon)
+
+        if name:
+            thread.name = name
+        thread.start()
+        self.threads.append(thread)
+        return thread
+
+    def connect(self):
+        """
+        Open a socket and handle connection
+        :return: None
+        """
+        self.open_socket()
+        self.handle_open_socket()
+
+    def disconnect(self):
+        """
+        Disconnect from socket
+        :return: None
+        """
+        if self.soc_connection:
+            self.soc_connection.close()
+        self.soc.close()
+        self.soc_connection = None
+
+    def reconnect(self):
+        """
+        Disconnects then reconnects to service. Does not stop the thread.
+        :return: None
+        """
+        self.disconnect()
+        self.connect()
+
+    def initialize_socket(self):
+        """
+        Initialize a socket. Use timeout to prevent constant blocking.
+        :return: None
+        """
+        self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.soc.settimeout(3)
 
     # pylint: disable=too-many-instance-attributes
 
@@ -194,14 +281,6 @@ class SocketServer(SocketConnection):
         packet = self.soc_connection.recv(self.signal_byte_size)
         return packet
 
-    def update_versions(self):
-        """
-        Update client and server
-        :return:
-        """
-        Update().do_update()
-        self.message_client({"upgrade_complete": True})
-
     def handle_open_socket(self):
         # pylint: disable=too-many-statements
         # pylint: disable=too-many-branches
@@ -325,7 +404,16 @@ class SocketServer(SocketConnection):
         self.do_timeout = kwargs.get("do_timeout", False)
         if not self.queue:
             self.queue = queue.SimpleQueue()
-        super().__init__(*args, **kwargs)
+        self.initialize_socket()
+        self.port = kwargs.get("port", settings.DEFAULT_PORT)
+        self.host = kwargs.get("host", settings.DEFAULT_HOST)
+        self.do_timeout = kwargs.get("do_timeout", False)
+        self.packet_size = kwargs.get("packet_size", settings.PACKET_SIZE)
+        self.max_client_connections = kwargs.get("max_client_connections", 1)
+        self.model_base_path = kwargs.get("model_base_path", ".")
+
+        self.start()
+        self.queue = queue.SimpleQueue()
         self.quit_event.clear()
         self.max_clients = kwargs.get(
             "max_clients",
