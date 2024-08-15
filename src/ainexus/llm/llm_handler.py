@@ -5,9 +5,9 @@ import threading
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.generation.streamers import TextIteratorStreamer
 
-from runai import settings
-from runai.llm.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
-from runai.settings import MODEL_BASE_PATH, MODELS
+from ainexus import settings
+from ainexus.llm.external_condition_stopping_criteria import ExternalConditionStoppingCriteria
+from ainexus.settings import MODEL_BASE_PATH, MODELS
 
 
 class LLMHandler():#RagMixin):

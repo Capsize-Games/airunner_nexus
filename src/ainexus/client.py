@@ -4,8 +4,8 @@ import socket
 import time
 from datetime import datetime
 
-from runai.llm.agent import Agent
-from runai.settings import DEFAULT_HOST, DEFAULT_PORT, PACKET_SIZE, USER_NAME, BOT_NAME, LLM_INSTRUCTIONS
+from ainexus.llm.agent import Agent
+from ainexus.settings import DEFAULT_HOST, DEFAULT_PORT, PACKET_SIZE, USER_NAME, BOT_NAME, LLM_INSTRUCTIONS
 
 
 class Client:

@@ -6,11 +6,11 @@ import time
 import queue
 from typing import Optional
 
-from runai import settings
-from runai.llm.llm_handler import LLMHandler
-from runai.logger import logger
-from runai.exceptions import FailedToSendError, NoConnectionToClientError
-import runai.messagecodes as codes
+from ainexus import settings
+from ainexus.llm.llm_handler import LLMHandler
+from ainexus.logger import logger
+from ainexus.exceptions import FailedToSendError, NoConnectionToClientError
+import ainexus.messagecodes as codes
 
 
 class Server:
