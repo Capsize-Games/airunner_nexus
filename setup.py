@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="ainexus",
+    name="airunner_nexus",
     version="v1.4.3",
     author="Capsize LLC",
     description="Run a socket server for AI models.",
@@ -10,7 +10,7 @@ setup(
     keywords="ai, stable diffusion, art, ai art, stablediffusion, LLM, mistral",
     license="",
     author_email="contact@capsizegames.com",
-    url="https://github.com/Capsize-Games/ainexus",
+    url="https://github.com/Capsize-Games/airunner_nexus",
     package_dir={"": "src"},
     packages=find_packages("src"),
     python_requires=">=3.10.0",
