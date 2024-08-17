@@ -10,7 +10,7 @@ from airunner_nexus.llm.external_condition_stopping_criteria import ExternalCond
 from airunner_nexus.settings import MODEL_BASE_PATH, MODELS
 
 
-class LLMHandler():#RagMixin):
+class LLMHandler:
     def __init__(self, model_name: str = settings.DEFAULT_MODEL_NAME):
         self.model_name = model_name
         self.model_path = os.path.join(
@@ -26,13 +26,6 @@ class LLMHandler():#RagMixin):
         self.generate_data = None
         self._do_interrupt_process = False
 
-    def resume(self):
-        self._do_interrupt_process = False
-        self.streamer = self.load_streamer()
-
-    def interrupt(self):
-        self._do_interrupt_process = True
-
     @property
     def quantized_model_path(self):
         return self.model_path + "_quantized"
@@ -40,6 +33,36 @@ class LLMHandler():#RagMixin):
     @property
     def device(self):
         return "cuda:0" if torch.cuda.is_available() else "cpu"
+
+    @staticmethod
+    def update_streamed_template(rendered_template, streamed_template, new_text):
+        streamed_template += new_text
+        streamed_template = streamed_template.replace("</s>", "")
+        replaced = streamed_template.find(rendered_template) != -1
+        streamed_template = streamed_template.replace(rendered_template, "")
+        return replaced, streamed_template
+
+    @staticmethod
+    def update_rendered_template(rendered_template) -> str:
+        rendered_template = rendered_template.replace("</s>", "")
+        rendered_template = "<s>" + rendered_template
+        rendered_template = rendered_template.replace("<s>[INST] <<SYS>>", "<s>[INST]  <<SYS>>")
+        rendered_template = rendered_template.replace("<</SYS>>[/INST][INST]", "<</SYS>>[/INST][INST] ")
+        return rendered_template
+
+    @staticmethod
+    def strip_tags(template: str) -> str:
+        template = template.replace("[/INST]", "")
+        template = template.replace("</s>", "")
+        template = template.replace("<</SYS>>", "")
+        return template
+
+    def resume(self):
+        self._do_interrupt_process = False
+        self.streamer = self.load_streamer()
+
+    def interrupt(self):
+        self._do_interrupt_process = True
 
     def do_interrupt_process(self):
         return self._do_interrupt_process
@@ -145,29 +168,6 @@ class LLMHandler():#RagMixin):
                 parsed = self.strip_tags(new_text)
                 yield parsed
         print("DONE")
-
-    @staticmethod
-    def update_streamed_template(rendered_template, streamed_template, new_text):
-        streamed_template += new_text
-        streamed_template = streamed_template.replace("</s>", "")
-        replaced = streamed_template.find(rendered_template) != -1
-        streamed_template = streamed_template.replace(rendered_template, "")
-        return replaced, streamed_template
-
-    @staticmethod
-    def update_rendered_template(rendered_template) -> str:
-        rendered_template = rendered_template.replace("</s>", "")
-        rendered_template = "<s>" + rendered_template
-        rendered_template = rendered_template.replace("<s>[INST] <<SYS>>", "<s>[INST]  <<SYS>>")
-        rendered_template = rendered_template.replace("<</SYS>>[/INST][INST]", "<</SYS>>[/INST][INST] ")
-        return rendered_template
-
-    @staticmethod
-    def strip_tags(template: str) -> str:
-        template = template.replace("[/INST]", "")
-        template = template.replace("</s>", "")
-        template = template.replace("<</SYS>>", "")
-        return template
 
     def generate(self, data):
         self.model.generate(**data)
