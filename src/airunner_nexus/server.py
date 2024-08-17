@@ -341,16 +341,6 @@ class Server:
     def handle_model_switch_message(self, model):
         pass
 
-    def switch_model(self, model):
-        logger.info("switch_model")
-        self.message = json.dumps({
-            "reqtype": "switch_model",
-            "model": model
-        }).encode()
-        # self.quit_event.set()
-        # self.message = None
-        #self.quit_event.set()
-
     def get_packet(self):
         packet = self.soc_connection.recv(self.signal_byte_size)
         return packet
@@ -410,11 +400,6 @@ class Server:
                         if self.is_cancel_message(packet):
                             self.handle_cancel_message()
                             break
-
-                        # switch_model = self.is_model_switch_message(packet)
-                        # if switch_model:
-                        #     self.switch_model(switch_model)
-                        #     break
 
                         if packet != b'':
                             packets.append(packet)
