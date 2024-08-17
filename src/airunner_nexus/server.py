@@ -41,25 +41,21 @@ class Server:
         self.start_thread(target=self.watch_connection, name="watch connection")
 
     @property
-    def message(self):
-        """
-        Does nothing. Only used for the setter.
-        """
+    def message(self) -> str:
+        """Does nothing. Only used for the setter."""
         return ""
 
     @message.setter
-    def message(self, msg):
-        """
-        Place incoming messages onto the queue
-        """
+    def message(self, msg: bytes):
+        """Place incoming messages onto the queue."""
         self.queue.put(msg)
 
     @property
-    def signal_byte_size(self):
+    def signal_byte_size(self) -> int:
         return self.packet_size
 
     @staticmethod
-    def find_json(res: str):
+    def find_json(res: str) -> re.Match:
         return Server.find_code_block("json", res)
 
     @staticmethod
@@ -68,42 +64,36 @@ class Server:
 
     @staticmethod
     def parse_request_data(incoming_data: bytes) -> dict:
-        """
-        Parse incoming bytes from the client.
-        :param incoming_data: bytes - incoming data from the client
-        """
+        """Parse incoming bytes from the client."""
         try:
             data = incoming_data.decode("ascii")
         except UnicodeDecodeError as err:
-            logger.error(f"something went wrong with a request from the client")
+            logger.error("something went wrong with a request from the client")
             logger.error(f"UnicodeDecodeError: {err}")
             return {}
 
         try:
             data = json.loads(data)
         except json.decoder.JSONDecodeError:
-            logger.error(f"Improperly formatted request from client")
+            logger.error("Improperly formatted request from client")
             return {}
 
         return data
 
     def worker(self):
-        """
-        Start a worker to handle request queue
-        """
+        """Start a worker to handle request queue."""
         logger.info("Enqueue worker started")
         while not self.quit_event.is_set():
             if self.has_connection:
-                # set timeout on queue
                 try:
                     msg = self.queue.get(timeout=1)  # get a message from the queue
                     if msg is not None:
                         logger.info("Received message from queue")
-                        try:  # send to callback
+                        try:
                             self.handle_message(msg)
-                        except Exception as err:  # pylint: disable=broad-except
+                        except Exception as err:
                             logger.info(f"callback error: {err}")
-                            raise (err)
+                            raise err
                 except queue.Empty:
                     pass
             if self.quit_event.is_set():
@@ -112,20 +102,11 @@ class Server:
         logger.info("SERVER WORKER: worker stopped")
 
     def start(self):
-        """
-        Starts a new thread with a connection to service.
-        :return: None
-        """
-        self.start_thread(
-            target=self.connect,
-            name="Connection thread"
-        )
+        """Starts a new thread with a connection to service."""
+        self.start_thread(target=self.connect, name="Connection thread")
 
     def stop(self):
-        """
-        Disconnects from service and stops the thread
-        :return: None
-        """
+        """Disconnects from service and stops the thread."""
         self.disconnect()
         logger.info("Stopping connection thread...")
         for index, thread in enumerate(self.threads):
@@ -140,18 +121,9 @@ class Server:
         logger.info("All threads stopped")
         self.quit_event.set()
 
-    def start_thread(
-            self, target: Optional, daemon: bool = False, name: str = None
-    ):
-        """
-        Start a thread and append it to the list of threads on this object.
-        :param target: func, thread will run this function
-        :param daemon: boolean, whether the thread is a daemon thread
-        :param name: str, name of the thread
-        return: thread
-        """
+    def start_thread(self, target: Optional, daemon: bool = False, name: str = None) -> threading.Thread:
+        """Start a thread and append it to the list of threads on this object."""
         thread = threading.Thread(target=target, daemon=daemon)
-
         if name:
             thread.name = name
         thread.start()
@@ -159,44 +131,29 @@ class Server:
         return thread
 
     def connect(self):
-        """
-        Open a socket and handle connection
-        :return: None
-        """
+        """Open a socket and handle connection."""
         self.open_socket()
         self.handle_open_socket()
 
     def disconnect(self):
-        """
-        Disconnect from socket
-        :return: None
-        """
+        """Disconnect from socket."""
         if self.soc_connection:
             self.soc_connection.close()
         self.soc.close()
         self.soc_connection = None
 
     def reconnect(self):
-        """
-        Disconnects then reconnects to service. Does not stop the thread.
-        :return: None
-        """
+        """Disconnects then reconnects to service. Does not stop the thread."""
         self.disconnect()
         self.connect()
 
     def initialize_socket(self):
-        """
-        Initialize a socket. Use timeout to prevent constant blocking.
-        :return: None
-        """
+        """Initialize a socket. Use timeout to prevent constant blocking."""
         self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.soc.settimeout(3)
 
     def reset_connection(self):
-        """
-        Reset connection to service
-        :return: None
-        """
+        """Reset connection to service."""
         self.disconnect()
         self.initialize_socket()
         self.has_connection = False
@@ -204,19 +161,12 @@ class Server:
         self.listen_to_socket()
 
     def handle_message(self, msg: bytes):
-        """
-        Override this method or pass it in as a parameter to handle messages
-        :param msg:
-        :return:
-        """
+        """Override this method or pass it in as a parameter to handle messages."""
         data = self.parse_request_data(msg)
         self.query_llm(data)
 
     def open_socket(self):
-        """
-        Open a socket connection
-        :return: None
-        """
+        """Open a socket connection."""
         try:
             self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.soc.settimeout(1)
@@ -224,24 +174,18 @@ class Server:
         except socket.error as err:
             logger.info(f"Failed to open a socket at {self.host}:{self.port}")
             logger.info(str(err))
-        except Exception as _exc:   # pylint: disable=broad-except
+        except Exception as _exc:
             logger.error(f"Failed to open a socket at {self.host}:{self.port}")
             logger.error(_exc)
         logger.info(f"Socket opened {self.soc}")
 
     def listen_to_socket(self):
-        """
-        Listen to socket for connections
-        :return: None
-        """
+        """Listen to socket for connections."""
         self.soc.listen(self.max_clients)
         logger.info(f"Listening for connections on {self.host}:{self.port}")
 
-    def try_quit(self):
-        """
-        Try to quit the thread
-        :return: None
-        """
+    def try_quit(self) -> bool:
+        """Try to quit the thread."""
         if self.quit_event.is_set():
             self.queue.put(b"quit")
             if self.soc_connection:
@@ -249,13 +193,11 @@ class Server:
                 self.soc_connection = None
             if self.queue:
                 self.queue.put("quit")
+            return True
+        return False
 
-    def do_send(self, msg):
-        """
-        Send a message to the client
-        :param msg: The message to send in bytes
-        :return: None
-        """
+    def do_send(self, msg: bytes) -> int:
+        """Send a message to the client."""
         size_in_bytes = len(msg)
         bytes_sent = 0
         if not self.soc_connection:
@@ -270,61 +212,46 @@ class Server:
                 logger.error("Failed to send all bytes")
         return bytes_sent
 
-    def message_client(self, message):
-        """
-        Convience method to send a message to the client
-        :param message:
-        :return:
-        """
+    def message_client(self, message: dict):
+        """Convenience method to send a message to the client."""
         message = json.dumps(message).encode()
         self.send_message(message)
         self.send_end_message()
 
-    def send_message(self, message):
-        """
-        Send a message to the client in byte packets
-        :param message:
-        :return:
-        """
+    def send_message(self, message: bytes):
+        """Send a message to the client in byte packets."""
         packet_size = self.packet_size
         for i in range(0, len(message), packet_size):
             packet = message[i:i + packet_size]
-            self.do_send(packet.encode() + b'\x00' * (packet_size - len(packet)))
+            self.do_send(packet + b'\x00' * (packet_size - len(packet)))
 
     def send_end_message(self):
-        # send a message of all zeroes of expected_byte_size length
-        # to indicate that the image is being sent
+        """Send a message of all zeroes of expected_byte_size length to indicate that the image is being sent."""
         self.do_send(b'\x00' * self.packet_size)
 
-    def send_msg(self, msg=None):
-        """
-        Send a message to the client
-        :param msg: The message to send
-        :return: None
-        """
+    def send_msg(self, msg: Optional[bytes] = None) -> int:
+        """Send a message to the client."""
         success = False
         bytes_sent = 0
         try:
             bytes_sent = self.do_send(msg)
             success = True
-        except FailedToSendError as e:
-            # return to queue
+        except FailedToSendError:
             logger.error("failed to send connection to client")
-        except NoConnectionToClientError as e:
-            # return to queue
+        except NoConnectionToClientError:
             logger.error("Lost connection to client")
         if not success:
             logger.error("failed to send message, adding back to queue")
             self.message = msg
         return bytes_sent
 
-    def is_expected_message(self, packet, byte):
+    def is_expected_message(self, packet: bytes, byte: bytes) -> bool:
         return packet == byte * self.signal_byte_size
 
-    def is_quit_message(self, packet):
+    def is_quit_message(self, packet: bytes) -> bool:
         return self.is_expected_message(packet, b'x')
 
-    def is_cancel_message(self, packet):
+    def is_cancel_message(self, packet: bytes) -> bool:
         return self.is_expected_message(packet, b'c')
 
     def handle_quit_message(self):
@@ -338,20 +265,21 @@ class Server:
         self.message = None
         self.cancel()
 
-    def handle_model_switch_message(self, model):
+    def handle_model_switch_message(self, model: str):
         pass
 
-    def get_packet(self):
-        packet = self.soc_connection.recv(self.signal_byte_size)
-        return packet
+    def switch_model(self, model: str):
+        logger.info("switch_model")
+        self.message = json.dumps({
+            "reqtype": "switch_model",
+            "model": model
+        }).encode()
+
+    def get_packet(self) -> bytes:
+        return self.soc_connection.recv(self.signal_byte_size)
 
     def handle_open_socket(self):
-        # pylint: disable=too-many-statements
-        # pylint: disable=too-many-branches
-        """
-        Listen for incoming connections.
-        Returns: None
-        """
+        """Listen for incoming connections."""
         self.listen_to_socket()
         current_state = codes.AWAITING_CONNECTION
         logger.info("Waiting for connections")
@@ -372,35 +300,26 @@ class Server:
                     if total_timeouts >= 3 and self.do_timeout:
                         self.quit_event.set()
                         break
-                except Exception as exc:  # pylint: disable=broad-except
+                except Exception as exc:
                     logger.error(exc)
 
             if current_state is codes.AWAITING_MESSAGE:
                 msg = None
                 try:
                     packets = []
-                    bytes_recd = 0
                     while True:
                         packet = self.get_packet()
-                        # if packet size is 0 then it tells us the
-                        # client is done sending the message
                         if packet == b'\x00' * self.packet_size:
                             break
-
-                        # strip the packet of any null bytes
                         packet = packet.strip(b'\x00')
-
                         if packet == b'':
                             raise RuntimeError("socket connection broken")
-
                         if self.is_quit_message(packet):
                             self.handle_quit_message()
                             break
-
                         if self.is_cancel_message(packet):
                             self.handle_cancel_message()
                             break
-
                         if packet != b'':
                             packets.append(packet)
                     msg = b''.join(packets)
@@ -411,7 +330,7 @@ class Server:
                 except ConnectionResetError:
                     logger.error("connection reset error")
                     current_state = codes.AWAITING_CONNECTION
-                except Exception as exc:  # pylint: disable=broad-except
+                except Exception as exc:
                     logger.error(exc)
                     current_state = codes.AWAITING_CONNECTION
 
@@ -421,11 +340,9 @@ class Server:
                     self.soc_connection.settimeout(None)
                     current_state = codes.AWAITING_MESSAGE
                 else:
-                    # check if connection is still valid
                     if not self.soc_connection:
                         logger.error("connection lost, invalid soc_connection")
                         current_state = codes.AWAITING_CONNECTION
-
                     if current_state == codes.AWAITING_CONNECTION:
                         logger.info("Connection with client lost")
                         logger.info("resetting socket")
@@ -435,21 +352,14 @@ class Server:
                 break
 
         logger.info("server stopped")
-
-        # time.sleep(1)
-
         self.stop()
 
     def cancel(self):
         pass
 
     def watch_connection(self):
-        """
-        Watch the connection and shutdown if the server is the connection
-        is lost.
-        """
+        """Watch the connection and shutdown if the server is the connection is lost."""
         while not self.quit_event.is_set():
-            # check if ctrl+c was pressed
             if self.try_quit():
                 logger.info("shutting down")
                 break
@@ -464,8 +374,7 @@ class Server:
                 self.send_message(text)
 
         if do_json:
-            response = response.strip()
-            response = response.replace("\n", " ")
+            response = response.strip().replace("\n", " ")
             found_json = Server.find_json(response)
             if found_json:
                 response = found_json.group(1)
