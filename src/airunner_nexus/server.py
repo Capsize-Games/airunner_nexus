@@ -17,45 +17,28 @@ import airunner_nexus.messagecodes as codes
 class Server:
     def __init__(self, *args, **kwargs):
         self.max_clients = kwargs.get("max_clients", settings.MAX_CLIENTS)
-        self.quit_event = None
-        self.port = settings.DEFAULT_PORT
-        self.host = settings.DEFAULT_HOST
+        self.port = kwargs.get("port", settings.DEFAULT_PORT)
+        self.host = kwargs.get("host", settings.DEFAULT_HOST)
+        self.packet_size = kwargs.get("packet_size", settings.PACKET_SIZE)
+        self.max_client_connections = kwargs.get("max_client_connections", 1)
+        self.model_base_path = kwargs.get("model_base_path", ".")
+        self.do_timeout = kwargs.get("do_timeout", False)
+
         self.soc = None
         self.soc_connection = None
         self.soc_addr = None
         self.threads = []
-        _failed_messages = []  # list to hold failed messages
-
         self.queue = queue.SimpleQueue()
         self.quit_event = threading.Event()
         self.has_connection = False
-        self.message = None
-        self.queue = None
-        self.do_timeout = kwargs.get("do_timeout", False)
-        if not self.queue:
-            self.queue = queue.SimpleQueue()
-        self.initialize_socket()
-        self.port = kwargs.get("port", settings.DEFAULT_PORT)
-        self.host = kwargs.get("host", settings.DEFAULT_HOST)
-        self.do_timeout = kwargs.get("do_timeout", False)
-        self.packet_size = kwargs.get("packet_size", settings.PACKET_SIZE)
-        self.max_client_connections = kwargs.get("max_client_connections", 1)
-        self.model_base_path = kwargs.get("model_base_path", ".")
-
         self.llm_handler = LLMHandler()
+        self.message = None
 
+        self.initialize_socket()
         self.start()
-        self.queue = queue.SimpleQueue()
-        self.quit_event.clear()
         signal.signal(signal.SIGINT, self.quit_event.set)  # handle ctrl+c
-        self.start_thread(
-            target=self.worker,
-            name="socket server worker"
-        )
-        self.start_thread(
-            target=self.watch_connection,
-            name="watch connection"
-        )
+        self.start_thread(target=self.worker, name="socket server worker")
+        self.start_thread(target=self.watch_connection, name="watch connection")
 
     @property
     def message(self):
@@ -64,16 +47,16 @@ class Server:
         """
         return ""
 
-    @property
-    def signal_byte_size(self):
-        return self.packet_size
-
     @message.setter
     def message(self, msg):
         """
         Place incoming messages onto the queue
         """
         self.queue.put(msg)
+
+    @property
+    def signal_byte_size(self):
+        return self.packet_size
 
     @staticmethod
     def find_json(res: str):
