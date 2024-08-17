@@ -1,4 +1,5 @@
 import json
+import re
 import signal
 import socket
 import threading
@@ -14,6 +15,48 @@ import airunner_nexus.messagecodes as codes
 
 
 class Server:
+    def __init__(self, *args, **kwargs):
+        self.max_clients = kwargs.get("max_clients", settings.MAX_CLIENTS)
+        self.quit_event = None
+        self.port = settings.DEFAULT_PORT
+        self.host = settings.DEFAULT_HOST
+        self.soc = None
+        self.soc_connection = None
+        self.soc_addr = None
+        self.threads = []
+        _failed_messages = []  # list to hold failed messages
+
+        self.queue = queue.SimpleQueue()
+        self.quit_event = threading.Event()
+        self.has_connection = False
+        self.message = None
+        self.queue = None
+        self.do_timeout = kwargs.get("do_timeout", False)
+        if not self.queue:
+            self.queue = queue.SimpleQueue()
+        self.initialize_socket()
+        self.port = kwargs.get("port", settings.DEFAULT_PORT)
+        self.host = kwargs.get("host", settings.DEFAULT_HOST)
+        self.do_timeout = kwargs.get("do_timeout", False)
+        self.packet_size = kwargs.get("packet_size", settings.PACKET_SIZE)
+        self.max_client_connections = kwargs.get("max_client_connections", 1)
+        self.model_base_path = kwargs.get("model_base_path", ".")
+
+        self.llm_handler = LLMHandler()
+
+        self.start()
+        self.queue = queue.SimpleQueue()
+        self.quit_event.clear()
+        signal.signal(signal.SIGINT, self.quit_event.set)  # handle ctrl+c
+        self.start_thread(
+            target=self.worker,
+            name="socket server worker"
+        )
+        self.start_thread(
+            target=self.watch_connection,
+            name="watch connection"
+        )
+
     @property
     def message(self):
         """
@@ -21,12 +64,45 @@ class Server:
         """
         return ""
 
+    @property
+    def signal_byte_size(self):
+        return self.packet_size
+
     @message.setter
     def message(self, msg):
         """
         Place incoming messages onto the queue
         """
         self.queue.put(msg)
+
+    @staticmethod
+    def find_json(res: str):
+        return Server.find_code_block("json", res)
+
+    @staticmethod
+    def find_code_block(language: str, res: str) -> re.Match:
+        return re.search(r'```' + language + '(.*?)```', res, re.DOTALL)
+
+    @staticmethod
+    def parse_request_data(incoming_data: bytes) -> dict:
+        """
+        Parse incoming bytes from the client.
+        :param incoming_data: bytes - incoming data from the client
+        """
+        try:
+            data = incoming_data.decode("ascii")
+        except UnicodeDecodeError as err:
+            logger.error(f"something went wrong with a request from the client")
+            logger.error(f"UnicodeDecodeError: {err}")
+            return {}
+
+        try:
+            data = json.loads(data)
+        except json.decoder.JSONDecodeError:
+            logger.error(f"Improperly formatted request from client")
+            return {}
+
+        return data
 
     def worker(self):
         """
@@ -133,8 +209,6 @@ class Server:
         self.soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.soc.settimeout(3)
 
-    # pylint: disable=too-many-instance-attributes
-
     def reset_connection(self):
         """
         Reset connection to service
@@ -146,27 +220,6 @@ class Server:
         self.open_socket()
         self.listen_to_socket()
 
-    @staticmethod
-    def parse_request_data(incoming_data: bytes) -> dict:
-        """
-        Parse incoming bytes from the client.
-        :param incoming_data: bytes - incoming data from the client
-        """
-        try:
-            data = incoming_data.decode("ascii")
-        except UnicodeDecodeError as err:
-            logger.error(f"something went wrong with a request from the client")
-            logger.error(f"UnicodeDecodeError: {err}")
-            return {}
-
-        try:
-            data = json.loads(data)
-        except json.decoder.JSONDecodeError:
-            logger.error(f"Improperly formatted request from client")
-            return {}
-
-        return data
-
     def handle_message(self, msg: bytes):
         """
         Override this method or pass it in as a parameter to handle messages
@@ -174,8 +227,7 @@ class Server:
         :return:
         """
         data = self.parse_request_data(msg)
-        if data.get("query_type", "") == "llm":
-            self.query_llm(data)
+        self.query_llm(data)
 
     def open_socket(self):
         """
@@ -282,10 +334,6 @@ class Server:
             logger.error("failed to send message, adding back to queue")
             self.message = msg
         return bytes_sent
-
-    @property
-    def signal_byte_size(self):
-        return self.packet_size
 
     def is_expected_message(self, packet, byte):
         return packet == byte * self.signal_byte_size
@@ -440,54 +488,24 @@ class Server:
             time.sleep(1)
 
     def query_llm(self, data: dict):
+        do_json = True
+        response = ""
         for text in self.llm_handler.query_model(data):
-            self.send_message(text)
+            response += text
+            if not do_json:
+                self.send_message(text)
+
+        if do_json:
+            response = response.strip()
+            response = response.replace("\n", " ")
+            found_json = Server.find_json(response)
+            if found_json:
+                response = found_json.group(1)
+                self.send_message(response)
+            else:
+                self.send_message(response)
+
         self.send_end_message()
-
-    def __init__(self, *args, **kwargs):
-        self.quit_event = None
-        self.port = settings.DEFAULT_PORT
-        self.host = settings.DEFAULT_HOST
-        self.soc = None
-        self.soc_connection = None
-        self.soc_addr = None
-        self.threads = []
-        _failed_messages = []  # list to hold failed messages
-
-        self.queue = queue.SimpleQueue()
-        self.quit_event = threading.Event()
-        self.has_connection = False
-        self.message = None
-        self.queue = None
-        self.do_timeout = kwargs.get("do_timeout", False)
-        if not self.queue:
-            self.queue = queue.SimpleQueue()
-        self.initialize_socket()
-        self.port = kwargs.get("port", settings.DEFAULT_PORT)
-        self.host = kwargs.get("host", settings.DEFAULT_HOST)
-        self.do_timeout = kwargs.get("do_timeout", False)
-        self.packet_size = kwargs.get("packet_size", settings.PACKET_SIZE)
-        self.max_client_connections = kwargs.get("max_client_connections", 1)
-        self.model_base_path = kwargs.get("model_base_path", ".")
-
-        self.llm_handler = LLMHandler()
-
-        self.start()
-        self.queue = queue.SimpleQueue()
-        self.quit_event.clear()
-        self.max_clients = kwargs.get(
-            "max_clients",
-            settings.MAX_CLIENTS
-        )
-        signal.signal(signal.SIGINT, self.quit_event.set)  # handle ctrl+c
-        self.start_thread(
-            target=self.worker,
-            name="socket server worker"
-        )
-        self.start_thread(
-            target=self.watch_connection,
-            name="watch connection"
-        )
 
 
 if __name__ == '__main__':
