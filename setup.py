@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="airunner_nexus",
-    version="v1.5.2",
+    version="v1.5.3",
     author="Capsize LLC",
     description="Run a socket server for AI models.",
     long_description=open("README.md", "r", encoding="utf-8").read(),
@@ -21,6 +21,7 @@ setup(
         "huggingface-hub==0.23.0",
         "torch==2.2.2",
         "optimum==1.19.1",
+        "inflect==7.2.0",
 
         # Stable Diffusion Dependencies
         "omegaconf==2.3.0",
